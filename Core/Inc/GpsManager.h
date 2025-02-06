@@ -58,7 +58,7 @@ public:
 	GpsManager();
 	virtual ~GpsManager();
 	HAL_StatusTypeDef InitGps(UART_HandleTypeDef *bus, uint8_t sof, uint8_t separator);
-	void UpdateLocation();
+	HAL_StatusTypeDef UpdateLocation();
 	UART_HandleTypeDef *GetBus();
 	double GetLongitude();
 	double GetLatitude();

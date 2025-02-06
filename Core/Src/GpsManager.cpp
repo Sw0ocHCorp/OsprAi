@@ -60,39 +60,46 @@ double GpsManager::ParseLatLong(string *buff) {
 }
 
 HAL_StatusTypeDef GpsManager::ParseFrame() {
+	HAL_StatusTypeDef status= HAL_OK;
 	string buff= "";
-	int state= -1;
+	int parsingState= -1;
 	for(int i=0; i < this->bufferIndex; i++) {
+		if (status != HAL_OK) {
+			break;
+		}
 		buff += (char) this->buffer[i];
 		//SOF FRAME Detection
-		if (state < TIMESTEP) {
+		if (parsingState < TIMESTEP) {
 			//We only process GPRMC | Speed / Course & Positioning at same time
 			//Under Sampling to ensure data consistency over time
 			if (buff.find(POSE_ID) != string::npos && this->buffer[i] == ',') {
-				state= TIMESTEP;
+				parsingState= TIMESTEP;
 				buff = "";
 			}
 		}
 		//FRAME Processing
 		else {
-			switch(state) {
+			switch(parsingState) {
 				case TIMESTEP:
 					if (this->buffer[i] == ',') {
-						this->currentTime.tm_hour = stoi(buff.substr(0, 2), nullptr, 10);
-						this->currentTime.tm_min = stoi(buff.substr(2, 2), nullptr, 10);
-						this->currentTime.tm_sec = stoi(buff.substr(4, 2), nullptr, 10);
+						if (buff.length() > 1) {
+							this->currentTime.tm_hour = stoi(buff.substr(0, 2), nullptr, 10);
+							this->currentTime.tm_min = stoi(buff.substr(2, 2), nullptr, 10);
+							this->currentTime.tm_sec = stoi(buff.substr(4, 2), nullptr, 10);
+						}
 						buff = "";
-						state= POSE_VALIDATION;
+						parsingState= POSE_VALIDATION;
 					}
 					break;
 				case POSE_VALIDATION:
 					if (this->buffer[i] == ',') {
 						const char *charBuff= buff.c_str();
 						if(charBuff[0] == 'V') {
-							state= INVALID;
+							parsingState= INVALID;
+							status= HAL_ERROR;
 						}
 						if(charBuff[0] == 'A') {
-							state= LATITUDE;
+							parsingState= LATITUDE;
 						}
 						buff= "";
 					}
@@ -100,7 +107,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 				case LATITUDE:
 					if (this->buffer[i-1] == ',' && buff.length()> 1) {
 						this->latitude= ParseLatLong(&buff);
-						state= LONGITUDE;
+						parsingState= LONGITUDE;
 						buff= "";
 						i++;
 					}
@@ -108,7 +115,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 				case LONGITUDE:
 					if (this->buffer[i-1] == ',' && buff.length()> 1) {
 						this->longitude= ParseLatLong(&buff);
-						state= SPEED;
+						parsingState= SPEED;
 						i++;
 						buff= "";
 					}
@@ -117,7 +124,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					if (this->buffer[i] == ',') {
 						if (buff.length() > 1 )
 							this->speed= ParseSpeedAngle(&buff) * KNOT_MS;
-						state= COURSE;
+						parsingState= COURSE;
 						buff= "";
 					}
 					break;
@@ -125,7 +132,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					if (this->buffer[i] == ',') {
 						if (buff.length() > 1 )
 							this->course= ParseSpeedAngle(&buff);
-						state= DATETIME;
+						parsingState= DATETIME;
 						buff= "";
 					}
 					break;
@@ -134,7 +141,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 						this->currentTime.tm_mday = stoi(buff.substr(0, 2), nullptr, 10);
 						this->currentTime.tm_mon = stoi(buff.substr(2, 2), nullptr, 10)-1;
 						this->currentTime.tm_year = 2000 + stoi(buff.substr(4, 2), nullptr, 10) - 1900;
-						state= MAGNETIC_VAR;
+						parsingState= MAGNETIC_VAR;
 						buff= "";
 					}
 					break;
@@ -150,9 +157,11 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 			}
 		}
 	}
+	return status;
 }
 
-void GpsManager::UpdateLocation(){
+HAL_StatusTypeDef GpsManager::UpdateLocation(){
+	HAL_StatusTypeDef status= HAL_BUSY;
 	//GET DATA Received by UART Communication
 	if (this->incomingByte == this->sof) {
 		this->bufferIndex = 0;
@@ -179,16 +188,17 @@ void GpsManager::UpdateLocation(){
 		else {
 			receivedCheckSum += this->buffer[bufferIndex-2];
 		}
-		//VALID FRAME | We can parse frame for update data
+		//VALID FRAME | We can parse frame & update data
 		if (this->checksum == receivedCheckSum) {
-			ParseFrame();
+			status= ParseFrame();
+		}
+		else {
+			status= HAL_ERROR;
 		}
 		memset(this->buffer, 0, 128);
 		bufferIndex= -1;
 	}
 
-	//Enable incomingByte Callback Reception
-	HAL_UART_Receive_IT(this->sensorBus, &this->incomingByte, 1);
 }
 
 UART_HandleTypeDef *GpsManager::GetBus() {

@@ -51,12 +51,15 @@ enum ParsingState {
 
 /* USER CODE END EM */
 
+void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
+
 /* Exported functions prototypes ---------------------------------------------*/
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
 //Fonction Sleep / Delay BLOQUANTE
 void CustomSleep(int timeMs);
+double LinearInInterval(double value, double minSource, double maxSource, double minTarget, double maxTarget);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/
@@ -65,20 +68,16 @@ void CustomSleep(int timeMs);
 #define B1_EXTI_IRQn EXTI15_10_IRQn
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
-#define PS0_Pin GPIO_PIN_5
-#define PS0_GPIO_Port GPIOC
-#define PS1_Pin GPIO_PIN_6
-#define PS1_GPIO_Port GPIOC
-#define INT_Pin GPIO_PIN_8
-#define INT_GPIO_Port GPIOC
-#define RST_Pin GPIO_PIN_9
-#define RST_GPIO_Port GPIOC
+#define MOTOR1_Pin GPIO_PIN_6
+#define MOTOR1_GPIO_Port GPIOC
+#define MOTOR2_Pin GPIO_PIN_7
+#define MOTOR2_GPIO_Port GPIOC
+#define MOTOR3_Pin GPIO_PIN_8
+#define MOTOR3_GPIO_Port GPIOC
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
-#define IMU_BOOT_Pin GPIO_PIN_2
-#define IMU_BOOT_GPIO_Port GPIOD
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
 
