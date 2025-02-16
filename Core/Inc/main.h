@@ -57,9 +57,6 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 void Error_Handler(void);
 
 /* USER CODE BEGIN EFP */
-//Fonction Sleep / Delay BLOQUANTE
-void CustomSleep(int timeMs);
-double LinearInInterval(double value, double minSource, double maxSource, double minTarget, double maxTarget);
 /* USER CODE END EFP */
 
 /* Private defines -----------------------------------------------------------*/

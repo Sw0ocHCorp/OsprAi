@@ -9,6 +9,7 @@
 #define INC_GPSMANAGER_H_
 
 #include "main.h"
+#include "SensorManager.h"
 #include <string>
 #include <ctime>
 
@@ -31,10 +32,9 @@ using namespace std;
 
 namespace Osprai {
 
-class GpsManager {
+class GpsManager : public SensorManager {
 private:
 	//Sensor Infos
-	UART_HandleTypeDef *sensorBus;
 	tm currentTime;
 	double longitude;
 	double latitude;
@@ -43,25 +43,24 @@ private:
 	double magneticVar;
 	//Var for Frame Parsing
 	bool computeChecksum= false;
-	uint8_t sof;
-	uint8_t separator;
-	int bufferIndex= -1;
 	uint8_t checksum;
+	int bufferIndex= -1;
+	uint8_t sof= '$';
 	HAL_StatusTypeDef ParseFrame();
 	double ParseLatLong(string *buff);
 	double ParseSpeedAngle(string *buff);
 	double ParseMagneticVar(string *buff);
-	uint8_t ComputeCheckSum();
+	uint8_t ComputeNMEACheckSum(vector<uint8_t> frame);
+	HAL_StatusTypeDef AnswerToRequest(vector<uint8_t> request);
+	HAL_StatusTypeDef ExtractData(bool enableInterrupt);
 public:
 	uint8_t incomingByte= 0;
 	uint8_t *buffer;
-	GpsManager();
+	vector<uint8_t> frameBuffer;
+	GpsManager(int bufferSize);
 	virtual ~GpsManager();
-	HAL_StatusTypeDef InitGps(UART_HandleTypeDef *bus, uint8_t sof, uint8_t separator);
 	HAL_StatusTypeDef UpdateLocation();
-	UART_HandleTypeDef *GetBus();
-	double GetLongitude();
-	double GetLatitude();
+	HAL_StatusTypeDef SensorConfiguration(map<uint8_t, vector<uint8_t>> *configuration= nullptr);
 };
 
 } /* namespace Osprai */

@@ -10,19 +10,12 @@
 
 namespace Osprai {
 
-GpsManager::GpsManager() {
-	// TODO Auto-generated constructor stub
+GpsManager::GpsManager(int frameBufferSize) :SensorManager(frameBufferSize) {
 
 }
 
-//Manager Init Function
-//separator: Sensor frame data separator
-HAL_StatusTypeDef GpsManager::InitGps(UART_HandleTypeDef *bus, uint8_t sof , uint8_t separator) {
-	this->sensorBus= bus;
-	this->sof= sof;
-	this->separator= separator;
-	this->buffer= new uint8_t[128];
-	memset(this->buffer, 0, 128);
+HAL_StatusTypeDef GpsManager::SensorConfiguration(map<uint8_t, vector<uint8_t>> *configuration) {
+	return HAL_OK;
 }
 
 double GpsManager::ParseMagneticVar(string *buff) {
@@ -43,7 +36,6 @@ double GpsManager::ParseSpeedAngle(string *buff) {
 }
 
 double GpsManager::ParseLatLong(string *buff) {
-	const char *charBuff= buff->c_str();
 	int floatPtIndex= buff->find('.');
 	string latStr= buff->substr(0, floatPtIndex-2);
 	double pos=(double)stoi(latStr, nullptr, 10);
@@ -59,20 +51,77 @@ double GpsManager::ParseLatLong(string *buff) {
 	return pos;
 }
 
+uint8_t GpsManager::ComputeNMEACheckSum(vector<uint8_t> frame) {
+	int frameCheckSumIndex= FindPattern(frame, vector<uint8_t> {'*'});
+	uint8_t checkSum= 0;
+	for (int i= 0; i < frameCheckSumIndex; i++) {
+		uint8_t t= frame.at(i);
+		checkSum ^= frame.at(i);
+	}
+	return checkSum;
+}
+
+HAL_StatusTypeDef GpsManager::ExtractData(bool enableInterrupt){
+	//If Blocking Mode, we get incomingByte to process the new data
+	if (enableInterrupt == false) {
+		HAL_StatusTypeDef status= HAL_UART_Receive(getUARTInterface(), &this->incomingByte, 1, 10);
+		if (status != HAL_OK)
+			return status;
+	}
+	//GET DATA Received by UART Communication
+	this->frameBuffer.push_back(this->incomingByte);
+	uint8_t *test= this->frameBuffer.data();
+	//If END OF FRAME Detected, process frameBuffer
+	if (this->incomingByte == '\n') {
+		//SOF Detection
+		int startingIndex= FindPattern(this->frameBuffer, getRawSof());
+		//If SOF Detected, delete all bytes before SOF
+		if (startingIndex>= 0) {
+			this->frameBuffer.erase(this->frameBuffer.begin(), this->frameBuffer.begin() + startingIndex + getRawSof().size());
+			int frameCheckSumIndex= FindPattern(this->frameBuffer, vector<uint8_t> {'*'});
+			if (ComputeNMEACheckSum(this->frameBuffer) == CharToByte(this->frameBuffer.at(frameCheckSumIndex+1)) << 4 | CharToByte(this->frameBuffer.at(frameCheckSumIndex+2)) << 0 &&
+					FindPattern(this->frameBuffer, vector<uint8_t> {'R', 'M', 'C'})>= 0) {
+				//If Interrupt Mode, call new Interrupt on data reception to maintain the loop
+				if (enableInterrupt) {
+					HAL_UART_Receive_IT(this->getUARTInterface(), &this->incomingByte, 1);
+				}
+				return ParseFrame();
+			}
+			else {
+				this->frameBuffer.clear();
+				//If Interrupt Mode, call new Interrupt on data reception to maintain the loop
+				if (enableInterrupt) {
+					HAL_UART_Receive_IT(this->getUARTInterface(), &this->incomingByte, 1);
+				}
+				return HAL_ERROR;
+			}
+		}
+	}
+	// If we are in Interrupt Mode, and we don't detect END OF FRAME yet | Call new Interrupt on data reception to maintain the loop
+	if (enableInterrupt) {
+		HAL_UART_Receive_IT(this->getUARTInterface(), &this->incomingByte, 1);
+	}
+	return HAL_BUSY;
+}
+
+HAL_StatusTypeDef GpsManager::AnswerToRequest(vector<uint8_t> request) {
+	return HAL_ERROR;
+}
+
 HAL_StatusTypeDef GpsManager::ParseFrame() {
 	HAL_StatusTypeDef status= HAL_OK;
 	string buff= "";
 	int parsingState= -1;
-	for(int i=0; i < this->bufferIndex; i++) {
+	for(int i=0; i < (int)this->frameBuffer.size(); i++) {
 		if (status != HAL_OK) {
 			break;
 		}
-		buff += (char) this->buffer[i];
+		buff += (char) this->frameBuffer[i];
 		//SOF FRAME Detection
 		if (parsingState < TIMESTEP) {
 			//We only process GPRMC | Speed / Course & Positioning at same time
 			//Under Sampling to ensure data consistency over time
-			if (buff.find(POSE_ID) != string::npos && this->buffer[i] == ',') {
+			if (buff.find(POSE_ID) != string::npos && this->frameBuffer[i] == ',') {
 				parsingState= TIMESTEP;
 				buff = "";
 			}
@@ -81,7 +130,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 		else {
 			switch(parsingState) {
 				case TIMESTEP:
-					if (this->buffer[i] == ',') {
+					if (this->frameBuffer[i] == ',') {
 						if (buff.length() > 1) {
 							this->currentTime.tm_hour = stoi(buff.substr(0, 2), nullptr, 10);
 							this->currentTime.tm_min = stoi(buff.substr(2, 2), nullptr, 10);
@@ -92,7 +141,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					}
 					break;
 				case POSE_VALIDATION:
-					if (this->buffer[i] == ',') {
+					if (this->frameBuffer[i] == ',') {
 						const char *charBuff= buff.c_str();
 						if(charBuff[0] == 'V') {
 							parsingState= INVALID;
@@ -105,7 +154,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					}
 					break;
 				case LATITUDE:
-					if (this->buffer[i-1] == ',' && buff.length()> 1) {
+					if (this->frameBuffer[i-1] == ',' && buff.length()> 1) {
 						this->latitude= ParseLatLong(&buff);
 						parsingState= LONGITUDE;
 						buff= "";
@@ -113,7 +162,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					}
 					break;
 				case LONGITUDE:
-					if (this->buffer[i-1] == ',' && buff.length()> 1) {
+					if (this->frameBuffer[i-1] == ',' && buff.length()> 1) {
 						this->longitude= ParseLatLong(&buff);
 						parsingState= SPEED;
 						i++;
@@ -121,7 +170,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					}
 					break;
 				case SPEED:
-					if (this->buffer[i] == ',') {
+					if (this->frameBuffer[i] == ',') {
 						if (buff.length() > 1 )
 							this->speed= ParseSpeedAngle(&buff) * KNOT_MS;
 						parsingState= COURSE;
@@ -129,7 +178,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					}
 					break;
 				case COURSE:
-					if (this->buffer[i] == ',') {
+					if (this->frameBuffer[i] == ',') {
 						if (buff.length() > 1 )
 							this->course= ParseSpeedAngle(&buff);
 						parsingState= DATETIME;
@@ -137,7 +186,7 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					}
 					break;
 				case DATETIME:
-					if (this->buffer[i] == ',') {
+					if (this->frameBuffer[i] == ',') {
 						this->currentTime.tm_mday = stoi(buff.substr(0, 2), nullptr, 10);
 						this->currentTime.tm_mon = stoi(buff.substr(2, 2), nullptr, 10)-1;
 						this->currentTime.tm_year = 2000 + stoi(buff.substr(4, 2), nullptr, 10) - 1900;
@@ -147,70 +196,18 @@ HAL_StatusTypeDef GpsManager::ParseFrame() {
 					break;
 				case MAGNETIC_VAR:
 					//DATA UNAVAILABLE
-					if (this->buffer[i-1] == ',' && this->buffer[i] == ',') {
-						i= this->bufferIndex;
+					if (this->frameBuffer[i-1] == ',' && this->frameBuffer[i] == ',') {
+						i= this->frameBuffer.size();
 					}
 					//DATA AVAILABLE
-					else if (this->buffer[i-1] == ',' && buff.length()> 1) {
+					else if (this->frameBuffer[i-1] == ',' && buff.length()> 1) {
 						this->magneticVar= ParseMagneticVar(&buff);
 					}
 			}
 		}
 	}
+	this->frameBuffer.clear();
 	return status;
-}
-
-HAL_StatusTypeDef GpsManager::UpdateLocation(){
-	HAL_StatusTypeDef status= HAL_BUSY;
-	//GET DATA Received by UART Communication
-	if (this->incomingByte == this->sof) {
-		this->bufferIndex = 0;
-		this->checksum = 0x00;
-		this->computeChecksum= true;
-	}
-	else if(this->bufferIndex >= 0 && this->incomingByte != '\n') {
-		if (this->incomingByte == '*') {
-			this->computeChecksum = false;
-		}
-		if(this->computeChecksum == true) {
-			this->checksum ^= this->incomingByte;
-		}
-		this->buffer[bufferIndex]= this->incomingByte;
-		bufferIndex += 1;
-	}
-	else if (this->incomingByte == '\n') {
-		//COMPUTING CHECKSUM
-		uint8_t receivedCheckSum= this->buffer[bufferIndex-3] << 4;
-		if (this->buffer[bufferIndex-2] >= '0' && this->buffer[bufferIndex-2] <= '9') {
-			int intByte= this->buffer[bufferIndex-2] - '0';
-			receivedCheckSum += intByte;
-		}
-		else {
-			receivedCheckSum += this->buffer[bufferIndex-2];
-		}
-		//VALID FRAME | We can parse frame & update data
-		if (this->checksum == receivedCheckSum) {
-			status= ParseFrame();
-		}
-		else {
-			status= HAL_ERROR;
-		}
-		memset(this->buffer, 0, 128);
-		bufferIndex= -1;
-	}
-
-}
-
-UART_HandleTypeDef *GpsManager::GetBus() {
-	return this->sensorBus;
-}
-
-double GpsManager::GetLatitude(){
-	return this->latitude;
-}
-
-double GpsManager::GetLongitude() {
-	return this->longitude;
 }
 
 GpsManager::~GpsManager() {

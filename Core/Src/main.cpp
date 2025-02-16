@@ -68,15 +68,10 @@ static void MX_I2C1_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-Osprai::GpsManager gps;
+Osprai::GpsManager gps(10);
 Osprai::MotorsController motorController;
-Osprai::ImuManager imu;
+Osprai::ImuManager imu(10);
 uint8_t data [16] {0};
-
-
-double LinearInInterval(double value, double minSource, double maxSource, double minTarget, double maxTarget) {
-	return ((value - minSource) / (maxSource - minSource)) * (maxTarget - minTarget) + minTarget;
-}
 
 int _write(int file, char *ptr, int len) {
 	int DataIdx;
@@ -85,6 +80,7 @@ int _write(int file, char *ptr, int len) {
 	}
 	return len;
 }
+
 /* USER CODE END 0 */
 
 /**
@@ -121,13 +117,19 @@ int main(void)
   MX_TIM8_Init();
   MX_I2C1_Init();
   /* USER CODE BEGIN 2 */
+  //Set each interfaces of all the sensors
+  imu.setI2CInterface(&hi2c1);
+  gps.setUARTInterface(&huart4);
+  //Configuration of all the sensors
   std::map<TIM_HandleTypeDef *, std::vector<unsigned int> > motorSources;
-  gps.InitGps(&huart4, '$', ',');
-  imu.InitSensor(&hi2c1);
+  //imu.InitSensor();
+  imu.SensorConfiguration(nullptr);
+  gps.setSeparator(',');
+  gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
   /*vector<unsigned int> motorChannels= {TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3};
   motorSources[&htim8]= motorChannels;
-  HAL_StatusTypeDef status= motorController.InitController(motorSources, false);
-  HAL_UART_Receive_IT(gps.GetBus(), &gps.incomingByte, 1);*/
+  HAL_StatusTypeDef status= motorController.InitController(motorSources, false);*/
+  //gps.UpdateLocation();
   HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
   /*HAL_StatusTypeDef status= HAL_I2C_IsDeviceReady(&hi2c1, 0x68, 10, 1000);
   if (status != HAL_OK)
@@ -136,12 +138,15 @@ int main(void)
   HAL_I2C_Master_Transmit(&hi2c1, 0x68, new uint8_t[2] {0x6B, 0x00}, 2, 1000);
   HAL_I2C_Master_Receive_IT(&hi2c1, 0x68, data, 8);*/
   /* USER CODE END 2 */
-
+  //HAL_UART_Receive_IT(gps.getUARTInterface(), &gps.incomingByte, 1);
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  //Start Update Data Loop with Interrupt | Set enableInterrupt to False
+  gps.UpdateData(true);
+  //Update Data call in While Loop use Blocking Mode | Set enableInterrupt to False
   while (1)
   {
-	  imu.UpdatePose(false);
+	  //imu.UpdateData(false);
 	  /*printf("TEST");
 	  HAL_Delay(1000);*/
 	  /*for(int i=0; i<=50; i++){
@@ -489,10 +494,12 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	HAL_StatusTypeDef status= gps.UpdateLocation();
-	HAL_UART_Receive_IT(gps.GetBus(), &gps.incomingByte, 1);
-	std::vector<int> setPoints= {10, 10, 10};
-	motorController.ApplySetPoints(setPoints);
+	gps.UpdateData(true);
+	//gps.UpdateLocation();
+	//HAL_UART_Receive_IT(gps.getUARTInterface(), &gps.incomingByte, 1);
+	//HAL_StatusTypeDef status= gps.UpdateLocation();
+	//std::vector<int> setPoints= {10, 10, 10};
+	//motorController.ApplySetPoints(setPoints);
 
 }
 

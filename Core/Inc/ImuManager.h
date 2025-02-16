@@ -11,10 +11,11 @@
 #define MPU_SLAVE_ADDR 0xD0
 
 #include "main.h"
+#include "SensorManager.h"
 
 namespace Osprai {
 
-class ImuManager {
+class ImuManager: public SensorManager {
 private:
 	double accelRange;
 	double gyroRange;
@@ -22,14 +23,14 @@ private:
 	double rotAccelVect[3];
 	double orientation[3];
 	bool computeChecksum= false;
-	I2C_HandleTypeDef *sensorBus;
-	void getAccelData(double *linAccelVect, bool enableInterrupt);
-	void getGyroData(double *rotAccelVect, bool enableInterrupt);
+	HAL_StatusTypeDef getAccelData(double *linAccelVect, bool enableInterrupt);
+	HAL_StatusTypeDef getGyroData(double *rotAccelVect, bool enableInterrupt);
+	HAL_StatusTypeDef ExtractData(bool enableInterrupt);
+	HAL_StatusTypeDef AnswerToRequest(vector<uint8_t> request);
 public:
-	ImuManager();
+	ImuManager(int bufferSize);
 	virtual ~ImuManager();
-	HAL_StatusTypeDef InitSensor(I2C_HandleTypeDef *bus);
-	HAL_StatusTypeDef UpdatePose(bool enableInterrupt);
+	HAL_StatusTypeDef SensorConfiguration(map<uint8_t, vector<uint8_t>> *configuration);
 };
 
 } /* namespace Osprai */
