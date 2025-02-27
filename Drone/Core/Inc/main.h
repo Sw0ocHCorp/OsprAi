@@ -63,6 +63,11 @@ void Error_Handler(void);
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
 #define B1_EXTI_IRQn EXTI15_10_IRQn
+#define IRq_nRF24_Pin GPIO_PIN_2
+#define IRq_nRF24_GPIO_Port GPIOA
+#define IRq_nRF24_EXTI_IRQn EXTI2_IRQn
+#define CE_nRF24_Pin GPIO_PIN_3
+#define CE_nRF24_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
 #define MOTOR1_Pin GPIO_PIN_6
@@ -75,6 +80,8 @@ void Error_Handler(void);
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
 #define TCK_GPIO_Port GPIOA
+#define SS_nRF24_Pin GPIO_PIN_2
+#define SS_nRF24_GPIO_Port GPIOD
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
 

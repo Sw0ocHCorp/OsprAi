@@ -21,11 +21,15 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include "GpsManager.h"
+#include "Sensors/GpsManager.h"
 #include "MotorsController.h"
-#include "ImuManager.h"
+#include "Sensors/ImuManager.h"
+#include "Network/nRF24Interface.h"
 #include <map>
 #include <vector>
+
+using namespace Osprai;
+using namespace std;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,6 +50,8 @@
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
+SPI_HandleTypeDef hspi3;
+
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim8;
 
@@ -62,15 +68,17 @@ static void MX_TIM2_Init(void);
 static void MX_UART4_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
+static void MX_SPI3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-Osprai::GpsManager gps(10);
-Osprai::MotorsController motorController;
-Osprai::ImuManager imu(10);
+nRF24Interface radioInterface(10);
+GpsManager gps(10);
+MotorsController motorController;
+ImuManager imu(10);
 uint8_t data [16] {0};
 
 int _write(int file, char *ptr, int len) {
@@ -116,16 +124,38 @@ int main(void)
   MX_UART4_Init();
   MX_TIM8_Init();
   MX_I2C1_Init();
+  MX_SPI3_Init();
   /* USER CODE BEGIN 2 */
   //Set each interfaces of all the sensors
   imu.setI2CInterface(&hi2c1);
   gps.setUARTInterface(&huart4);
   //Configuration of all the sensors
-  std::map<TIM_HandleTypeDef *, std::vector<unsigned int> > motorSources;
+  map<TIM_HandleTypeDef *, std::vector<unsigned int> > motorSources;
+  //AUTO Acknowledge for all data pipes
+  //Enable data pipes => pipes 0 & 1
+  //Address Width => 3 Bytes
+  //Delay between 2 transmission => 250us
+  //Setup RF Channel(communication bandwidth range) => 76
+  //Set the channel frequency communication => 2Mbps
+  //Disable Global Dynamic Payload Size
+  //Payload Size for P0 & P1 => 32 Bytes
+  map<uint8_t, uint8_t> nRFConfig {{EN_AA_MODE_REG, 0x3f},
+	  	  	  	  	  	  	  	  	  	  	  {EN_RXADDR_REG, 0x03},
+											  {SETUP_AW_REG, 0x01},
+											  {SETUP_RETR_REG, 0x00},
+											  {RF_CH_REG, (uint8_t)74},
+  	  	  	  	  	  	  	  	  	  	  	  {RF_SETUP_REG, (uint8_t)0b00001110},
+  	  	  	  	  	  	  	  	  	  	  	  {FEATURE_REG, 0x00},
+  	  	  	  	  	  	  	  	  	  	  	  {RX_PW_P0_REG, 0x20},
+											  {RX_PW_P1_REG, 0x20}};
+  radioInterface.PerformCustomConfiguration((uint16_t *)0x00, &nRFConfig);
   //imu.InitSensor();
   imu.SensorConfiguration(nullptr);
   gps.setSeparator(',');
+  //gps.setSeparator(',');
   gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
+
+  //lora.PerformCustomConfiguration(nullptr, &loraConfig);
   /*vector<unsigned int> motorChannels= {TIM_CHANNEL_1, TIM_CHANNEL_2, TIM_CHANNEL_3};
   motorSources[&htim8]= motorChannels;
   HAL_StatusTypeDef status= motorController.InitController(motorSources, false);*/
@@ -138,7 +168,7 @@ int main(void)
   HAL_I2C_Master_Transmit(&hi2c1, 0x68, new uint8_t[2] {0x6B, 0x00}, 2, 1000);
   HAL_I2C_Master_Receive_IT(&hi2c1, 0x68, data, 8);*/
   /* USER CODE END 2 */
-  //HAL_UART_Receive_IT(gps.getUARTInterface(), &gps.incomingByte, 1);
+
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   //Start Update Data Loop with Interrupt | Set enableInterrupt to False
@@ -146,6 +176,9 @@ int main(void)
   //Update Data call in While Loop use Blocking Mode | Set enableInterrupt to False
   while (1)
   {
+	  /*if (lora.IsDataAvailable() == 1) {
+		  lora.ReceiveData();
+	  }*/
 	  //imu.UpdateData(false);
 	  /*printf("TEST");
 	  HAL_Delay(1000);*/
@@ -258,6 +291,46 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief SPI3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_SPI3_Init(void)
+{
+
+  /* USER CODE BEGIN SPI3_Init 0 */
+
+  /* USER CODE END SPI3_Init 0 */
+
+  /* USER CODE BEGIN SPI3_Init 1 */
+
+  /* USER CODE END SPI3_Init 1 */
+  /* SPI3 parameter configuration*/
+  hspi3.Instance = SPI3;
+  hspi3.Init.Mode = SPI_MODE_MASTER;
+  hspi3.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi3.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi3.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi3.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi3.Init.NSS = SPI_NSS_SOFT;
+  hspi3.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  hspi3.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi3.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi3.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi3.Init.CRCPolynomial = 7;
+  hspi3.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi3.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN SPI3_Init 2 */
+
+  /* USER CODE END SPI3_Init 2 */
 
 }
 
@@ -453,10 +526,14 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, CE_nRF24_Pin|LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(SS_nRF24_GPIO_Port, SS_nRF24_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -472,14 +549,30 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pin : IRq_nRF24_Pin */
+  GPIO_InitStruct.Pin = IRq_nRF24_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(IRq_nRF24_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : CE_nRF24_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = CE_nRF24_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : SS_nRF24_Pin */
+  GPIO_InitStruct.Pin = SS_nRF24_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(SS_nRF24_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI2_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI2_IRQn);
+
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
