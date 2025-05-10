@@ -1,12 +1,18 @@
 #![allow(unused_variables)]
 
-pub mod ethernet_interface;
-
-use ethernet_interface::EthernetInterface;
+use bevy::prelude::*;
+use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiContextPass};
 
 fn main() {
-    println!("Hello, world!");
-    let eth = EthernetInterface::new("192.168.1.173".into(), 8080, true);
-    //eth.listen();
-    eth.send("Hello from Rust!".into(), "192.168.1.221:8080");
+    App::new()
+        .add_plugins(DefaultPlugins)
+        .add_plugins(EguiPlugin { enable_multipass_for_primary_context: true })
+        .add_systems(EguiContextPass, ui_example_system)
+        .run();
+}
+
+fn ui_example_system(mut contexts: EguiContexts) {
+    egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
+        ui.label("world");
+    });
 }
