@@ -1,18 +1,14 @@
 #![allow(unused_variables)]
+#![allow(unused_imports)]
+pub mod ethernet_interface;
+mod events_management;
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContexts, EguiPlugin, EguiContextPass};
+use events_management::{CustomEvent, Event, Observer};
 
 fn main() {
-    App::new()
-        .add_plugins(DefaultPlugins)
-        .add_plugins(EguiPlugin { enable_multipass_for_primary_context: true })
-        .add_systems(EguiContextPass, ui_example_system)
-        .run();
-}
-
-fn ui_example_system(mut contexts: EguiContexts) {
-    egui::Window::new("Hello").show(contexts.ctx_mut(), |ui| {
-        ui.label("world");
-    });
+    let mut test_event = events_management::CustomEvent::new();
+    test_event.add_observer(events_management::Observer::new());
+    test_event.trigger("Hello".to_string());
 }

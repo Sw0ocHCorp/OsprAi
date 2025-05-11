@@ -1,4 +1,3 @@
-mod events_observers;
+pub mod events_management;
 
-pub use events_observers::Event;
-pub use events_observers::Observer;
+pub use events_management::{CustomEvent, Event, Observer};
