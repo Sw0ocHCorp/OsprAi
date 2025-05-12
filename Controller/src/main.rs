@@ -10,5 +10,5 @@ use events_management::{CustomEvent, Event, Observer};
 fn main() {
     let mut test_event = events_management::CustomEvent::new();
     test_event.add_observer(events_management::Observer::new());
-    test_event.trigger("Hello".to_string());
+    test_event.trigger(&("Hello".to_string()));
 }

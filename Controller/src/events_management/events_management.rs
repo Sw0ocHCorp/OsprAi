@@ -1,44 +1,46 @@
 use bevy::ecs::observer;
 
 #[allow(dead_code)]
-pub struct Observer {}
+pub struct Observer<T> {
+    _marker: std::marker::PhantomData<T>,
+}
 
-impl Observer {
+impl<T> Observer<T> {
     pub fn new() -> Self {
-        let custom_observer = Observer {};
-        return custom_observer;
+        let obs= Observer { _marker: std::marker::PhantomData };
+        return obs;
     }
-    fn respond(&self, data: String) {
-        std::println!("Observer received data: {}", data);
+    fn respond(&self, data: &T) {
+        std::println!("Observer received data:");
     }
 }
 
 #[allow(dead_code)]
-pub trait Event {
+pub trait Event<T> {
     fn new() -> Self;
-    fn trigger(&self, data: String) {
+    fn trigger(&self, data: &T) {
     }
-    fn add_observer(&mut self, observer: Observer);
+    fn add_observer(&mut self, observer: Observer<T>);
 }
 #[allow(dead_code)]
-pub struct CustomEvent {
-    observers: Vec<Observer>,
+pub struct CustomEvent<T> {
+    observers: Vec<Observer<T>>,
 }
 
-impl Event for CustomEvent {
+impl<T> Event<T> for CustomEvent<T> {
     fn new() -> Self {
         let custom_event = CustomEvent {
             observers: Vec::new(),
         };
         return custom_event;
     }
-    fn add_observer(&mut self, observer: Observer) {
+    fn add_observer(&mut self, observer: Observer<T>) {
         self.observers.push(observer);
     }
     
-    fn trigger(&self, data: String) {
+    fn trigger(&self, data: &T) {
         for obs in self.observers.iter() {
-            obs.respond(data.clone());
+            obs.respond(data);
         }
     }
 }
