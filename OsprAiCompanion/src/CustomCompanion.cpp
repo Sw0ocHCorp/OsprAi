@@ -1,7 +1,7 @@
 #include "../include/EthernetInterface.hpp"
 
 int main() {
-    EthernetInterface eth("192.168.1.221", 8080);
+    EthernetInterface eth("127.0.0.1", 8080);
     if (eth.connect()) {
         cout << "Connected successfully!" << endl;
         if (eth.sendFrame("127.0.0.1", 8081, "Hello, World!")) {
