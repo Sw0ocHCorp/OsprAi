@@ -37,7 +37,7 @@ impl EthernetInterface {
                 if let Some(observer_arc) = &observer_clone {
                     if let Ok(msg) = observer_arc.lock().unwrap().try_recv() {
                         match msg {
-                            MessageType::Text(data) => {
+                            MessageType::UDPFrame(data) => {
                                 println!("Received data: {}", data);
                             },
                             MessageType::Binary(cmd) => {
@@ -55,14 +55,14 @@ impl EthernetInterface {
         match socket.recv_from(&mut buf) {
             Ok(((size, src))) => {
                 println!("Received {} bytes from {}: {:?}", size, src, &buf[..size]);
-                frame_event.trigger(MessageType::Text(String::from("LOOPBACK")));
+                frame_event.trigger(MessageType::UDPFrame(String::from("LOOPBACK")));
             },
             _ => {
             }
         }
     }
-    pub fn send(&self, data: String, dest: &str) {
-        self.socket.send_to(data.as_bytes(), dest).expect("Trying to send data");
+    pub fn send(&self, data: String, dest_address: String, dest_port: u16) {
+        self.socket.send_to(data.as_bytes(), format!("{}:{}", dest_address, dest_port)).expect("Trying to send data");
     }
     
     pub fn waitEnd(&mut self) {

@@ -2,7 +2,7 @@ use tokio::sync::broadcast::{channel, Sender, Receiver};
 
 #[derive(Debug, Clone)]
 pub enum MessageType {
-    Text(String),
+    UDPFrame(String),
     Binary(Vec<u8>),
 }
 

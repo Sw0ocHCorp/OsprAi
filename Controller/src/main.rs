@@ -40,22 +40,18 @@ use tokio::sync::broadcast::{channel, Sender, Receiver};
 fn main() {
     println!("Hello, world!");
     let mut eth = EthernetInterface::new("127.0.0.1".into(), 8080);
-    let (tx, rx) = channel::<MessageType>(100);
-    /*let tx = eth.getSender();
-    let tx2 = eth.getSender();
-    let rx= eth.getReceiver();
-    let rx2= eth.getReceiver();*/
+    /*let (tx, rx) = channel::<MessageType>(100);
     eth.attachExternalObserver(Arc::new(std::sync::Mutex::new(rx)));
     eth.start();
     println!("Listening ");
     let mut rx2 = eth.getModuleObserver();
     let mut rx3 = eth.getModuleObserver();
-    tx.send(MessageType::Text(String::from("Hello from Rust!"))).expect("Failed to send message");
+    tx.send(MessageType::UDPFrame(String::from("Hello from Rust!"))).expect("Failed to send message");
     let t2= thread::spawn(move || {
         loop {
             if let Ok(msg) = rx2.try_recv() {
                 match msg {
-                    MessageType::Text(data) => {
+                    MessageType::UDPFrame(data) => {
                         println!("Received data: {}", data);
                     },
                     MessageType::Binary(cmd) => {
@@ -69,7 +65,7 @@ fn main() {
         loop {
             if let Ok(msg) = rx3.try_recv() {
                 match msg {
-                    MessageType::Text(data) => {
+                    MessageType::UDPFrame(data) => {
                         println!("Received data: {}", data);
                     },
                     MessageType::Binary(cmd) => {
@@ -79,6 +75,6 @@ fn main() {
             }
         }
     });
-    eth.waitEnd();
+    eth.waitEnd();*/
     //eth.send("Hello from Rust!".into(), "127.0.0.1:8080");
 }
