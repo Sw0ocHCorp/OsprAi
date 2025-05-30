@@ -7,7 +7,6 @@ use tokio::sync::broadcast::{Receiver};
 
 use crate::event_management::{MessageType, Event};
 
-
 #[allow(dead_code)]
 pub struct EthernetInterface {
     address: String,

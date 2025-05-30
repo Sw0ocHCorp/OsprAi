@@ -1,6 +1,12 @@
-slint::slint!(import { OsprAiWindow } from "ui/osprai_window.slint";);
+//slint::include_modules!();
+pub mod ethernet_interface;
+pub mod event_management;
+pub mod ui;
+use ui::OsprAiSoftware;
 
-fn main() {
-    let app = OsprAiWindow::new().unwrap();
-    app.run().unwrap();
+
+fn main()  -> Result<(), slint::PlatformError> {
+    let mut soft = OsprAiSoftware::new();
+    
+    return soft.run();
 }

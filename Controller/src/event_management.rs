@@ -1,5 +1,7 @@
 use tokio::sync::broadcast::{channel, Sender, Receiver};
 
+use crate::ethernet_interface::EthernetInterface;
+
 #[derive(Debug, Clone)]
 pub enum MessageType {
     UDPFrame(String),
