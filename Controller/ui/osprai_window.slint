@@ -1,0 +1,128 @@
+import { Button, VerticalBox, TextEdit, HorizontalBox } from "std-widgets.slint";
+
+export component OsprAiWindow inherits Window {
+    width: 1900px;
+    always-on-top: false;
+    height: 1040px;
+    title: "OsprAi";
+
+HorizontalLayout {
+    width: 100%;
+    height: 100%;
+    spacing: 8px;
+    VerticalLayout {
+        width: 66%;
+        height: 100%;
+        Image {
+        }
+        Image {
+        }
+    }
+    VerticalLayout {
+        height: 100%;
+        alignment: stretch;
+        TextEdit {
+            enabled: false;
+            height: 50%;
+            placeholder-text: "Drone Logs";
+        }
+        VerticalLayout {
+            padding-bottom: 10px;
+            padding-top: 10px;
+            Text {
+                min-height: 30px;
+                max-height: 40px;
+                text: "Current GPS Location:";
+                horizontal-alignment: center;
+                font-weight: 800;                    
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                min-height: 30px;
+                max-height: 40px;
+                Text {
+                    text: "Latitude";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    
+                }
+                Text {
+                    text: "Longitude";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    
+                }
+            }
+        }
+        VerticalLayout {
+            padding-bottom: 10px;
+            padding-top: 10px;
+            Text {
+                min-height: 30px;
+                max-height: 40px;
+                text: "Current Orientation:";
+                horizontal-alignment: center;
+                font-weight: 800;
+                
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                padding-top: 10px;
+                padding-bottom: 10px;
+                min-height: 30px;
+
+                Text {
+                    text: "Roll";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    
+                }
+                Text {
+                    text: "Pitch";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    
+                }
+                Text {
+                    text: "Yaw";
+                    horizontal-alignment: center;
+                    vertical-alignment: top;
+                    
+                }
+            }
+        }
+        HorizontalLayout {
+            alignment: stretch;
+            Button {
+                max-height: 50px;
+                min-height: 30px;
+                text: "Arm";
+                clicked => {
+                    // Handle send button click
+                    // You can add your logic here
+                }
+            }
+            Button {
+                max-height: 50px;
+                min-height: 30px;
+                text: "Start Logs Recording";
+                clicked => {
+                    // Handle send button click
+                    // You can add your logic here
+                }
+            }
+            Button {
+                max-height: 50px;
+                min-height: 30px;
+                text: "Stop Logs Recording";
+                clicked => {
+                    // Handle send button click
+                    // You can add your logic here
+                }
+            }
+        }
+    }
+}
+}

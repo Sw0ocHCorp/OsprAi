@@ -3,7 +3,7 @@ use std::sync::{Arc, Mutex};
 use std::thread::{self, JoinHandle};
 use std::net::UdpSocket;
 
-use tokio::sync::broadcast::{channel, Sender, Receiver};
+use tokio::sync::broadcast::{Receiver};
 
 use crate::event_management::{MessageType, Event};
 
