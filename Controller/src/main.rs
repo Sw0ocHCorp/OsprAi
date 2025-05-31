@@ -7,6 +7,5 @@ use ui::OsprAiSoftware;
 
 fn main()  -> Result<(), slint::PlatformError> {
     let mut soft = OsprAiSoftware::new();
-    
     return soft.run();
 }

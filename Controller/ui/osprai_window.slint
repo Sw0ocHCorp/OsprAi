@@ -8,9 +8,24 @@ struct WorldMap {
     yaw: float,
 }
 
+struct DisplaySize {
+    width: int,
+    height: int,
+}
+
 export component OsprAiWindow inherits Window {
     in-out property <string> connection_msg: "Not Connected";
     in-out property <string> arm_msg: "Arm\nDrone";
+    in property <image> cam_display;
+    in property <image> monitoring_display;
+    in-out property <DisplaySize> cam_display_size: { 
+        width: cam_display.width / 1px,
+        height: cam_display.height / 1px,
+    };
+    in-out property <DisplaySize> monitoring_display_size: { 
+        width: monitoring_display.width / 1px,
+        height: monitoring_display.height / 1px,
+    };
     in-out property <WorldMap> perception_data: {
         lat: 0,
         lon: 0.0,
@@ -22,6 +37,7 @@ export component OsprAiWindow inherits Window {
     callback disarm_drone();
     callback start_logs_record();
     callback stop_logs_record();
+    pure callback render_plot();
     
     width: 1900px;
     always-on-top: false;
@@ -33,11 +49,18 @@ export component OsprAiWindow inherits Window {
             VerticalLayout {
                 width: 6/10.0 * parent.width;
                 height: parent.height;
-                Image {
+                cam_display := Image {
+                    source: root.cam_display;
+                    horizontal-alignment: left;
+                    vertical-alignment: top;
                 }
-                Image {
+                monitoring_display := Image {
+                    source: root.monitoring_display;
+                    horizontal-alignment: left;
+                    vertical-alignment: bottom;
                 }
             }
+            
             VerticalLayout {
                 width: 4/10.0 * parent.width;
                 vertical-stretch: 1;
@@ -163,4 +186,5 @@ export component OsprAiWindow inherits Window {
             }
         }
     }
+    
 }
