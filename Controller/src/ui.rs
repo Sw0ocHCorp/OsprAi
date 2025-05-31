@@ -1,54 +1,110 @@
-use crate::ethernet_interface::EthernetInterface;
+use slint::SharedString;
+use std::{thread::{self, JoinHandle}};
+use crate::{ethernet_interface::EthernetInterface};
 use std::sync::{Arc, Mutex};
-
+//use tokio::sync::broadcast::{Receiver};
+use crate::event_management::MessageType;
 slint::slint!(import { OsprAiWindow } from "ui/osprai_window.slint";);
 
 pub struct OsprAiSoftware {
     // All the UI elements are wrapped in an Arc<Mutex> to allow safe concurrent access in all callbacks
-    ui: Arc<Mutex<OsprAiWindow>>,
+    ui: OsprAiWindow,
     eth: Arc<Mutex<EthernetInterface>>,
     pub update_available: Arc<Mutex<bool>>,
     pub update_progress: f32, // 0.0 to 1.0
+    //current_perception: WorldMap,
+    update_routine: Option<JoinHandle<()>>,
 }
 
 impl OsprAiSoftware {
     pub fn new() -> OsprAiSoftware {
-        let ui = Arc::new(Mutex::new(OsprAiWindow::new().expect("Failed to create UI")));
+        let ui = OsprAiWindow::new().expect("Failed to create UI");
+        //let map: WorldMap = ui.get_perception_data();
         let eth = Arc::new(Mutex::new(EthernetInterface::new("127.0.0.1".into(), 8080)));
         OsprAiSoftware {
             ui,
             eth,
             update_available: Arc::new(Mutex::new(false)),
             update_progress: 0.0,
+            //current_perception: map,
+            update_routine: None,
         }
     }
-        
+    
+    pub fn start_listening_updates(&mut self) {
+        let mut eth_receiver = self.eth.lock().unwrap().get_module_observer(); // Get a new observer for the Ethernet interface events
+        let ui_handle = self.ui.as_weak(); // Get a weak reference to the UI (to allow ui modification without ownership issues)
+        self.update_routine = Some(thread::spawn( move ||{
+            loop {
+                if let Ok(msg) = eth_receiver.try_recv() {
+                    match msg {
+                        MessageType::UDPFrame(data) => {
+                            //Using the weak_ref to put ui modification task in the queue of the event loop (let slint handle it)
+                            match ui_handle.upgrade_in_event_loop(move|ui| {
+                                                                    println!("Received data: {}", data);
+                                                                    let mut perception= ui.get_perception_data();
+                                                                    perception.lat += 1.0; // Simulate some change in perception data
+                                                                    ui.set_perception_data(perception.clone());
+                               
+                            }) {
+                                Ok(_) => {},
+                                Err(e) => {
+                                    println!("Failed to update perception data: {}", e);
+                                }
+                            }
+                            
+                        }
+                        _ => {
+                            println!("Received command: {:#?}", msg);
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
     pub fn run(&mut self) -> Result<(), slint::PlatformError> {
         {
-            let mut eth_to_arm = self.eth.clone();
-            
-            let mut ui= self.ui.lock().unwrap();
-            let update_available = self.update_available.clone(); // Get a cloned instance of the smart pointer
+            let eth_to_arm = self.eth.clone();
             eth_to_arm.lock().unwrap().start(); // Start the Ethernet interface
-            ui.on_arm_drone(move || {
-                let mut eth = eth_to_arm.lock().unwrap(); // Lock the access(from other threads) to the 
+            let ui_handle = self.ui.as_weak(); // Get a weak reference to the UI (to allow ui modification without ownership issues)
+            self.ui.on_arm_drone(move || {
+                let eth = eth_to_arm.lock().unwrap(); // Lock the access(from other threads) during the callback
                 eth.send(String::from("Arm"), String::from("127.0.0.1"), 8000);
-                let mut update_available = update_available.lock().unwrap(); // Lock the access(from other threads) to the data
-                println!("{} Arm drone clicked", update_available);
-                *update_available = !*update_available; // Simulate an update being available
+                //Using the weak_ref to put ui modification task in the queue of the event loop (let slint handle it)
+                match ui_handle.upgrade_in_event_loop(|ui| {
+                                                        ui.set_arm_msg(SharedString::from("DisArm\nDrone"));
+                }) {
+                    Ok(_) => {},
+                    Err(e) => println!("Failed to disarm drone: {}", e),
+                }
+                
+                
+                
             });
-            let mut eth_to_disarm = self.eth.clone();
-             ui.on_disarm_drone(move || {
-                let mut eth = eth_to_disarm.lock().unwrap(); // Lock the access(from other threads) to the 
+            let ui_handle = self.ui.as_weak(); // Get a weak reference to the UI (to allow ui modification without ownership issues)
+            let eth_to_disarm = self.eth.clone();
+            self.ui.on_disarm_drone(move || {
+                let eth = eth_to_disarm.lock().unwrap(); // Lock the access(from other threads) during the callback
                 eth.send(String::from("DisArm"), String::from("127.0.0.1"), 8000);
+                //Using the weak_ref to put ui modification task in the queue of the event loop (let slint handle it)
+                match ui_handle.upgrade_in_event_loop(|ui| {
+                                                        ui.set_arm_msg(SharedString::from("Arm\nDrone"));
+                }) {
+                    Ok(_) => {},
+                    Err(e) => println!("Failed to disarm drone: {}", e),
+                }
             });
-            ui.on_start_logs_record(|| {
+
+            self.ui.on_start_logs_record(|| {
                 println!("Start recording logs");
             });
-            ui.on_stop_logs_record(|| {
+
+            self.ui.on_stop_logs_record(|| {
                 println!("Stop recording logs");
             });
         }
-        return self.ui.lock().unwrap().run();
+        self.start_listening_updates(); // Start listening for updates from the Ethernet interface
+        return self.ui.run();
     }
 }

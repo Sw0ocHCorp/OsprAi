@@ -52,7 +52,7 @@ impl EthernetInterface {
     pub fn listen(socket: Arc<UdpSocket>, frame_event: Arc<Event<MessageType>>) {    
         let mut buf = [0; 1024];
         match socket.recv_from(&mut buf) {
-            Ok(((size, src))) => {
+            Ok((size, src)) => {
                 println!("Received {} bytes from {}: {:?}", size, src, &buf[..size]);
                 frame_event.trigger(MessageType::UDPFrame(String::from("LOOPBACK")));
             },
@@ -64,17 +64,17 @@ impl EthernetInterface {
         self.socket.send_to(data.as_bytes(), format!("{}:{}", dest_address, dest_port)).expect("Trying to send data");
     }
     
-    pub fn waitEnd(&mut self) {
+    pub fn wait_end(&mut self) {
         if let Some(handle) = self.ethernet_routine.take() {
             handle.join().expect("Failed to join ethernet thread");
         }
     }
 
-    pub fn getModuleObserver(&self) -> Receiver<MessageType> {
-        return self.event.getNewObserver();
+    pub fn get_module_observer(&self) -> Receiver<MessageType> {
+        return self.event.get_new_observer();
     }
     
-    pub fn attachExternalObserver(&mut self, observer: Arc<Mutex<Receiver<MessageType>>>) {
+    pub fn attach_external_observer(&mut self, observer: Arc<Mutex<Receiver<MessageType>>>) {
         self.observer = Some(observer);
     }
 }

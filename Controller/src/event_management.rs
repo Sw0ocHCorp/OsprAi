@@ -1,7 +1,5 @@
 use tokio::sync::broadcast::{channel, Sender, Receiver};
 
-use crate::ethernet_interface::EthernetInterface;
-
 #[derive(Debug, Clone)]
 pub enum MessageType {
     UDPFrame(String),
@@ -18,7 +16,7 @@ impl<T: Clone> Event<T> {
         Event {sender}
     }
 
-    pub fn getNewObserver(&self) ->Receiver<T> {
+    pub fn get_new_observer(&self) ->Receiver<T> {
         // Logic to add observer
         return self.sender.subscribe();
     }
