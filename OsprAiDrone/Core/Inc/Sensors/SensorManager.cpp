@@ -46,10 +46,6 @@ void SensorManager::setParsingIds(map<uint16_t, uint16_t> parsingIds) { this->pa
 
 map<uint16_t, uint16_t> SensorManager::getParsingIds() {return this->parsingIds;}
 
-void SensorManager::setSPIInterface(SPI_HandleTypeDef *i2cInterface) { this->spiInterface= spiInterface; }
-
-SPI_HandleTypeDef *SensorManager::getSPIInterface() { return this->spiInterface;}
-
 void SensorManager::setI2CInterface(I2C_HandleTypeDef *i2cInterface) { this->i2cInterface= i2cInterface; }
 
 I2C_HandleTypeDef *SensorManager::getI2CInterface() { return this->i2cInterface; }
