@@ -16,7 +16,7 @@ impl<T: Clone> Event<T> {
         Event {sender}
     }
 
-    pub fn getNewObserver(&self) ->Receiver<T> {
+    pub fn get_new_observer(&self) ->Receiver<T> {
         // Logic to add observer
         return self.sender.subscribe();
     }
