@@ -1,0 +1,191 @@
+import { Button, VerticalBox, TextEdit, HorizontalBox, ScrollView } from "std-widgets.slint";
+
+struct WorldMap {
+    lat: float,
+    lon: float,
+    roll: float,
+    pitch: float,
+    yaw: float,
+}
+
+struct DisplaySize {
+    width: int,
+    height: int,
+}
+
+export component OsprAiWindow inherits Window {
+    in-out property <string> connection_msg: "Not Connected";
+    in-out property <string> arm_msg: "Arm\nDrone";
+    in property <image> cam_display;
+    in property <image> monitoring_display;
+    in-out property <DisplaySize> cam_display_size: { 
+        width: cam_display.width / 1px,
+        height: cam_display.height / 1px,
+    };
+    in-out property <DisplaySize> monitoring_display_size: { 
+        width: monitoring_display.width / 1px,
+        height: monitoring_display.height / 1px,
+    };
+    in-out property <WorldMap> perception_data: {
+        lat: 0,
+        lon: 0.0,
+        roll: 0.0,
+        pitch: 0.0,
+        yaw: 0.0,
+    };
+    callback arm_drone();
+    callback disarm_drone();
+    callback start_logs_record();
+    callback stop_logs_record();
+    callback send_setpoint();
+    pure callback render_plot();
+    
+    width: 1900px;
+    always-on-top: false;
+    height: 1040px;
+    title: "OsprAi";
+    VerticalLayout {
+        HorizontalLayout {
+            height: parent.height - 20px;
+            VerticalLayout {
+                width: 6/10.0 * parent.width;
+                height: parent.height;
+                cam_display := Image {
+                    source: root.cam_display;
+                    horizontal-alignment: left;
+                    vertical-alignment: top;
+                }
+                monitoring_display := Image {
+                    source: root.monitoring_display;
+                    horizontal-alignment: left;
+                    vertical-alignment: bottom;
+                }
+            }
+            
+            VerticalLayout {
+                width: 4/10.0 * parent.width;
+                vertical-stretch: 1;
+                ScrollView {
+                    height: parent.height /2.0;
+                    TextEdit {
+                        enabled: false;
+                        height: parent.height; 
+                        width: parent.width;
+                        placeholder-text: "  Drone Logs";
+                    }
+                }
+                VerticalLayout {
+                    padding-bottom: 10px;
+                    padding-top: 10px;
+                    Text {
+                        min-height: 30px;
+                        max-height: 40px;
+                        text: "Current GPS Location:";
+                        horizontal-alignment: center;
+                        font-weight: 800;                    
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        min-height: 30px;
+                        max-height: 40px;
+                        Text {
+                            text: root.perception_data.lat;
+                            horizontal-alignment: center;
+                            vertical-alignment: top;
+                            
+                        }
+                        Text {
+                            text: root.perception_data.lon;
+                            horizontal-alignment: center;
+                            vertical-alignment: top;
+                            
+                        }
+                    }
+                }
+                VerticalLayout {
+                    padding-bottom: 10px;
+                    padding-top: 10px;
+                    Text {
+                        min-height: 30px;
+                        max-height: 40px;
+                        text: "Current Orientation:";
+                        horizontal-alignment: center;
+                        font-weight: 800;
+                        
+                    }
+                    HorizontalLayout {
+                        spacing: 8px;
+                        padding-top: 10px;
+                        padding-bottom: 10px;
+                        min-height: 30px;
+
+                        Text {
+                            text: root.perception_data.roll;
+                            horizontal-alignment: center;
+                            vertical-alignment: top;
+                            
+                        }
+                        Text {
+                            text: root.perception_data.pitch;
+                            horizontal-alignment: center;
+                            vertical-alignment: top;
+                            
+                        }
+                        Text {
+                            text: root.perception_data.yaw;
+                            horizontal-alignment: center;
+                            vertical-alignment: top;
+                            
+                        }
+                    }
+                }
+                HorizontalLayout {
+                    Button {
+                        max-height: 40px;
+                        min-height: 40px;
+                        width: 1/3.0 * parent.width;
+                        text: arm_msg;
+                        clicked => {
+                            if (arm_msg == "Arm\nDrone") {
+                                arm_drone();
+                            } else {
+                                disarm_drone();
+                            }
+                        }
+                    }
+                    Button {
+                        max-height: 70px;
+                        min-height: 30px;
+                        width: 1/3.0 * parent.width;
+                        text: "Start \nLogs Record";
+                        clicked => {
+                            start_logs_record();
+                        }
+                    }
+                    Button {
+                        max-height: 70px;
+                        min-height: 30px;
+                        width: 1/3.0 * parent.width;
+                        text: "Stop \nLogs Record";
+                        clicked => {
+                            stop_logs_record();
+                        }
+                    }
+                }
+            }
+        }
+        HorizontalLayout {
+            padding-right: 10px;
+            padding-top: 5px;
+            Text {
+                text: connection_msg;
+                font-size: 10px;
+                font-weight: 300;
+                horizontal-alignment: right;
+            }
+        }
+    }
+    
+}
