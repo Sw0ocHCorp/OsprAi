@@ -1,0 +1,3 @@
+/home/Sw0ocH/OsprAi/OsprAiCompanion/build/CMakeFiles/OsprAiCompanion.dir
+/home/Sw0ocH/OsprAi/OsprAiCompanion/build/CMakeFiles/edit_cache.dir
+/home/Sw0ocH/OsprAi/OsprAiCompanion/build/CMakeFiles/rebuild_cache.dir

@@ -64,5 +64,7 @@
         "thread": "cpp",
         "cinttypes": "cpp",
         "typeinfo": "cpp"
-    }
+    },
+    "C_Cpp.default.compilerPath": "usr/bin/g++",
+    "cmake.sourceDirectory": "/home/Sw0ocH/OsprAi/OsprAiCompanion"
 }
