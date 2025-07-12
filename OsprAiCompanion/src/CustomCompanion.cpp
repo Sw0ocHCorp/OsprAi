@@ -1,15 +1,13 @@
 #include "../include/EthernetInterface.hpp"
+#include "EventsManagement.hpp"
 
 int main() {
-    EthernetInterface eth("127.0.0.1", 8080);
-    if (eth.connect()) {
-        cout << "Connected successfully!" << endl;
-        if (eth.sendFrame("127.0.0.1", 8081, "Hello, World!")) {
-            cout << "Frame sent successfully!" << endl;
-        } else {
-            cout << "Failed to send frame!" << endl;
-        }
-    } else {
-        cout << "Connection failed!" << endl;
+    EthernetInterface eth("192.168.1.109", 8080, "192.168.1.235", 8080);
+    FrameReceivedObserver observer = FrameReceivedObserver();
+    eth.addFrameReceivedObserver(&observer);
+
+    //Maintient en vie du Soft
+    while(true) {
+
     }
 }
