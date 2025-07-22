@@ -55,7 +55,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/home/Sw0ocH/OsprAi/build"
+			"value" : "/home/Sw0ocH/OsprAi/OsprAiCompanion/build"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -411,7 +411,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/Sw0ocH/OsprAi/build/CMakeFiles/pkgRedirects"
+			"value" : "/home/Sw0ocH/OsprAi/OsprAiCompanion/build/CMakeFiles/pkgRedirects"
 		},
 		{
 			"name" : "CMAKE_GENERATOR",
@@ -1007,7 +1007,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/home/Sw0ocH/OsprAi/build"
+			"value" : "/home/Sw0ocH/OsprAi/OsprAiCompanion/build"
 		},
 		{
 			"name" : "OsprAiCompanion_IS_TOP_LEVEL",
@@ -1032,6 +1032,18 @@
 			],
 			"type" : "STATIC",
 			"value" : "/home/Sw0ocH/OsprAi/OsprAiCompanion"
+		},
+		{
+			"name" : "PIGPIO_LIB",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/libpigpio.so"
 		},
 		{
 			"name" : "_CMAKE_LINKER_PUSHPOP_STATE_SUPPORTED",
