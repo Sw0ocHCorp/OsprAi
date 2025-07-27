@@ -99,6 +99,11 @@
 				"backtrace" : 2,
 				"fragment" : "-lpthread",
 				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "-lwiringPi",
+				"role" : "libraries"
 			}
 		],
 		"language" : "CXX"

@@ -1,6 +1,7 @@
 #ifndef COM_INTERFACE_HPP
 #define COM_INTERFACE_HPP
 
+#include <chrono>
 #include <iostream>
 #include <arpa/inet.h>
 #include <thread>

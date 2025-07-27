@@ -16,7 +16,7 @@ set(SOURCES
 # file(GLOB SOURCES CONFIGURE_DEPENDS "src/*.cpp")
 
 add_executable(${PROJECT_NAME} ${SOURCES})
-target_link_libraries(${PROJECT_NAME} PRIVATE gpiod pthread)
+target_link_libraries(${PROJECT_NAME} PRIVATE gpiod pthread wiringPi)
 
 # Add include directory for header files (*.hpp)
 target_include_directories(${PROJECT_NAME}
