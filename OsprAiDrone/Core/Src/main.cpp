@@ -24,7 +24,7 @@
 #include "Sensors/GpsManager.h"
 #include "MotorsController.h"
 #include "Sensors/ImuManager.h"
-#include "Network/UARTInterface.h"
+#include "UARTInterface.h"
 #include <map>
 #include <vector>
 
@@ -51,6 +51,7 @@ using namespace std;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart4;
@@ -68,6 +69,7 @@ static void MX_UART4_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 
 /* USER CODE END PFP */
@@ -115,6 +117,7 @@ int main(void)
   MX_TIM8_Init();
   MX_I2C1_Init();
   MX_UART5_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
     //Set each interfaces of all the sensors
     imu.setI2CInterface(&hi2c1);
@@ -124,20 +127,22 @@ int main(void)
     imu.SensorConfiguration(nullptr);
     gps.setSeparator(',');
     gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
-    companionInterface.setUARTBus(&huart5);
+    companionInterface.setBus(&huart5);
+    HAL_TIM_Base_Start_IT(&htim2);
+    HAL_TIM_Base_Start(&htim2);
     HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
     //Start Update Data Loop with Interrupt | Set enableInterrupt to False
-    gps.UpdateData(true);
-    companionInterface.ExtractUARTData();
+    //gps.UpdateData(true);
+    companionInterface.ListeningForFrame();
     //
     //Update Data call in While Loop use Blocking Mode | Set enableInterrupt to False
     while (1)
     {
-  	  imu.UpdateData(false);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -261,9 +266,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 999;
+  htim2.Init.Prescaler = 1000;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 1600;
+  htim2.Init.Period = 200;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -292,6 +297,55 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 999;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 1600;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OnePulse_Init(&htim3, TIM_OPMODE_SINGLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief TIM8 Initialization Function
   * @param None
   * @retval None
@@ -312,7 +366,7 @@ static void MX_TIM8_Init(void)
 
   /* USER CODE END TIM8_Init 1 */
   htim8.Instance = TIM8;
-  htim8.Init.Prescaler = 80-1;
+  htim8.Init.Prescaler = 8-1;
   htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
   htim8.Init.Period = 100-1;
   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
@@ -473,7 +527,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, ADDR_IMU1_Pin|ADDR_IMU2_Pin|LD2_Pin|ADDR_IMU0_Pin, GPIO_PIN_SET);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -489,12 +543,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : ADDR_IMU1_Pin ADDR_IMU2_Pin LD2_Pin ADDR_IMU0_Pin */
-  GPIO_InitStruct.Pin = ADDR_IMU1_Pin|ADDR_IMU2_Pin|LD2_Pin|ADDR_IMU0_Pin;
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
@@ -515,13 +569,26 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	if (huart == &huart4) {
+	/*if (huart == &huart4) {
 		gps.UpdateData(true);
-	}
-	if (huart == &huart5) {
-		//companion
-	}
+	}*/
+	/*if (huart == &huart5) {
+		companionInterface.ListeningForFrame();
+	}*/
+	companionInterface.ListeningForFrame();
 
+}
+
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
+{
+  if (htim == &htim2)
+  {
+	  // Get sensor measurement
+	  imu.UpdateData(false);
+  }
+  if (htim == & htim3) {
+	  //Stream data to Companion through UART
+  }
 }
 
 void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef * hi2c)

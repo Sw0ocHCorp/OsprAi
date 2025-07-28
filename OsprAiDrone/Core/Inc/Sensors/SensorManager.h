@@ -30,28 +30,53 @@ class SensorManager {
 		char separator;
 		map<uint16_t, uint16_t> parsingIds;
 		//------------ Standard Functions ------------
-		uint8_t ComputeCheckSum(vector<uint8_t> frame);
+		uint8_t ComputeCheckSum(vector<uint8_t> frame)  {
+			uint8_t checkSum= frame.at(0);
+			for(int i= 1; i < (int)frame.size(); i++) {
+				checkSum |= frame.at(i);
+			}
+			return checkSum;
+		}
 		//------------ Custom Functions ------------
 		virtual HAL_StatusTypeDef AnswerToRequest(vector<uint8_t> request)= 0;
 		virtual HAL_StatusTypeDef ExtractData(bool enableInterrupt)= 0;
 
 	public:
-		SensorManager(int bufferSize);
-		virtual ~SensorManager();
+		SensorManager(int bufferSize) {
+			// TODO Auto-generated constructor stub
+			this->rxBuffer= new CircularBuffer(bufferSize);
+		}
+
+		virtual ~SensorManager() {
+
+		}
 		//------------ Standard Functions ------------
-		HAL_StatusTypeDef UpdateData(bool enableInterrupt);
-		void setI2CInterface(I2C_HandleTypeDef *i2cInterface);
-		I2C_HandleTypeDef *getI2CInterface();
-		void setUARTInterface(UART_HandleTypeDef *i2cInterface);
-		UART_HandleTypeDef *getUARTInterface();
-		void setSeparator(char separator);
-		char getSeparator();
-		void setParsingIds(map<uint16_t, uint16_t> parsingIds);
-		map<uint16_t, uint16_t> getParsingIds();
-		void setSof(vector<uint8_t> rawSof, vector<uint8_t> newSof);
-		vector<uint8_t> getRawSof();
-		vector<uint8_t> getNewSof();
-		HAL_StatusTypeDef StoreRequest(vector<uint8_t> frame);
+		HAL_StatusTypeDef UpdateData(bool enableInterrupt) {
+			//Get data from Sensor
+			ExtractData(enableInterrupt);
+			//Give answers to all the requests in buffer;
+			while(this->rxBuffer->getCurrentSize() > 0) {
+				AnswerToRequest(this->rxBuffer->Dequeue());
+			}
+		}
+
+		void setI2CInterface(I2C_HandleTypeDef *i2cInterface) { this->i2cInterface= i2cInterface; }
+		I2C_HandleTypeDef *getI2CInterface() { return this->i2cInterface; }
+		void setUARTInterface(UART_HandleTypeDef *uartInterface) { this->uartInterface= uartInterface; }
+		UART_HandleTypeDef *getUARTInterface() { return this->uartInterface; }
+		void setSeparator(char separator) { this->separator = separator; }
+		char getSeparator() { return this->separator;}
+		void setParsingIds(map<uint16_t, uint16_t> parsingIds) { this->parsingIds= parsingIds; }
+		map<uint16_t, uint16_t> getParsingIds() {return this->parsingIds;}
+		void setSof(vector<uint8_t> rawSof, vector<uint8_t> newSof) {
+			this->rawSof= rawSof;
+			this->newSof= newSof;
+		}
+		vector<uint8_t> getRawSof() {return this->rawSof;}
+		vector<uint8_t> getNewSof() {return this->newSof;}
+		HAL_StatusTypeDef StoreRequest(vector<uint8_t> frame) {
+			return this->rxBuffer->Enqueue(frame);
+		}
 		//------------ Custom Functions ------------
 		virtual HAL_StatusTypeDef SensorConfiguration(map<uint8_t, vector<uint8_t>> *configuration= nullptr)= 0;
 

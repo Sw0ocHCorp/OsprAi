@@ -14,12 +14,12 @@ class FrameParser {
         string Sof;
         int CurrentStep = SOF;
         map<string, string> ParsingIds;
-        map<string, string> EncodingIds;
     public:
-        FrameParser(string sof, map<string, string> parsingIds, map<string, string> encodingIds) {
+        FrameParser() {}
+
+        FrameParser(string sof, map<string, string> parsingIds) {
             Sof = sof;
             ParsingIds = parsingIds;
-            EncodingIds = encodingIds;
         }
 
         map<string, vector<float>> parseFrame(string frame) {
@@ -30,7 +30,6 @@ class FrameParser {
             int frameSize = 0;
             int dataSize = 0;
             unsigned char checksum = 0;
-            
             for (int i = 0; i < frame.length(); i += 2) {
                 frameSize--;
                 buffer += frame[i];
@@ -86,7 +85,7 @@ class FrameParser {
                         break;
                     case CHECKSUM:
                         if (stoi(buffer, nullptr, 16) == checksum) {
-                            cout << "Frame parsed successfully" << endl;
+                            return parsedData;
                         } else {
                             cout << "Checksum error: expected " << static_cast<int>(checksum) 
                                  << ", got " << stoi(buffer, nullptr, 16) << endl;
@@ -94,6 +93,7 @@ class FrameParser {
                         break; 
                 }
             }
+            parsedData.clear();
             return parsedData;
         }
 
@@ -104,20 +104,18 @@ class FrameParser {
                 checksum += stoi(Sof.substr(i, 2), nullptr, 16);
             }
             for (const auto& [id, values] : data) {
-                if (EncodingIds.find(id) != EncodingIds.end()) {
-                    for (int i= 0; i < EncodingIds[id].size(); i += 2) {
-                        checksum += stoi(EncodingIds[id].substr(i, 2), nullptr, 16);
+                for (int i= 0; i < id.size(); i += 2) {
+                    checksum += stoi(id.substr(i, 2), nullptr, 16);
+                }
+                encodedFrame += id;
+                encodedFrame += uCharToHexString(values.size() * sizeof(float));
+                checksum += values.size() * sizeof(float);
+                for (const float& value : values) {
+                    string hexValue = floatToHexString(value);
+                    for (int i = 0; i < hexValue.size(); i += 2) {
+                        checksum += stoi(hexValue.substr(i, 2), nullptr, 16);
                     }
-                    encodedFrame += EncodingIds[id];
-                    encodedFrame += uCharToHexString(values.size() * sizeof(float));
-                    checksum += values.size() * sizeof(float);
-                    for (const float& value : values) {
-                        string hexValue = floatToHexString(value);
-                        for (int i = 0; i < hexValue.size(); i += 2) {
-                            checksum += stoi(hexValue.substr(i, 2), nullptr, 16);
-                        }
-                        encodedFrame += hexValue;
-                    }
+                    encodedFrame += hexValue;
                 }
             }
             int frameSize = (encodedFrame.size() / 2)+1;

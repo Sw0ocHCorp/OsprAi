@@ -5,7 +5,8 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <thread>
-#include <EventsManagement.hpp>
+#include "EventsManagement.hpp"
+#include "FrameParser.hpp"
 
 using namespace std;
 
@@ -13,14 +14,16 @@ class ComInterface
 {
     private:
         thread Task;
+        
     protected:
         bool IsRunning = false;
         Event<string> FrameReceivedEvent;
-
+        FrameParser Parser;
         virtual void runTask() = 0;
 
     public:
-        ComInterface() {
+        ComInterface(FrameParser parser) {
+            Parser = parser;
         }
         ~ComInterface(){
             stopTask();
