@@ -1,15 +1,20 @@
 use slint::{ComponentHandle, SharedString};
-use std::{thread::{self, JoinHandle}};
-use crate::{ethernet_interface::EthernetInterface};
+use std::{collections::HashMap, thread::{self, JoinHandle}};
+use crate::{ethernet_interface::EthernetInterface, frame_parser::FrameParser};
 use std::sync::{Arc, Mutex};
 use chrono::{DateTime, Local};
 use plotters::prelude::*;
 use slint::SharedPixelBuffer;
 //use tokio::sync::broadcast::{Receiver};
-use crate::event_management::MessageType;
+use crate::{event_management::MessageType, event_management::CustomEvent};
 use crate::logs_recorder::LogsRecorder;
 use crate::gamepad_manager::GamePadManager;
 slint::slint!(import { OsprAiWindow } from "ui/osprai_window.slint";);
+
+#[derive(Debug, Clone, Copy)]
+pub struct UICmd {
+    pub need_arm: bool
+}
 
 pub struct OsprAiSoftware {
     // All the UI elements are wrapped in an Arc<Mutex> to allow safe concurrent access in all callbacks
@@ -19,6 +24,7 @@ pub struct OsprAiSoftware {
     gamepad_manager: Option<Arc<Mutex<GamePadManager>>>, // Optional keyboard manager
     //current_perception: WorldMap,
     update_routine: Option<JoinHandle<()>>,
+    sender_event: Arc<CustomEvent<MessageType>>,
     is_drone_init:bool,
 }
 
@@ -26,7 +32,10 @@ impl OsprAiSoftware {
     pub fn new() -> OsprAiSoftware {
         let ui = OsprAiWindow::new().expect("Failed to create UI");
         //let map: WorldMap = ui.get_perception_data();
-        let eth = Arc::new(Mutex::new(EthernetInterface::new("192.168.1.235".into(), 8080, "192.168.1.109".into(), 8080)));
+        let parser = FrameParser::new("abcd".to_string(), HashMap::from([("000f".to_string(), "current_speed".to_string()), ("0010".to_string(), "current_angle".to_string()), 
+                                                                                                            ("0011".to_string(), "current_alt".to_string()), ("0012".to_string(), "lat_lon".to_string())]));
+                                                                            
+        let eth = Arc::new(Mutex::new(EthernetInterface::new("192.168.1.173".into(), 8080, "192.168.1.221".into(), 8080, parser)));
         let now = Local::now();
         let now_format= now.format("%Y-%m-%d_%H:%M:%S").to_string();
         let logs_recorder = Arc::new(LogsRecorder::new(format!("/home/sw0och/OsprAi/Controller/logs/{}.txt", now_format))); // Initialize logs recorder with a file path
@@ -37,6 +46,7 @@ impl OsprAiSoftware {
             gamepad_manager: Some(Arc::new(Mutex::new(GamePadManager::new()))), // Initialize keyboard manager
             //current_perception: map,
             update_routine: None,
+            sender_event: Arc::new(CustomEvent::new()),
             is_drone_init: false,
         }
     }
@@ -74,14 +84,19 @@ impl OsprAiSoftware {
     }
 
     pub fn run(&mut self) -> Result<(), slint::PlatformError> {
-        let eth_to_arm = self.eth.clone();
-        let gmpad_task = self.gamepad_manager.clone();
-        if let Some(gmpad_arc) = gmpad_task {
+        let gamepad_manager = self.gamepad_manager.clone();
+        let sender_event = self.sender_event.clone();
+        let gmap_obs= gamepad_manager.clone().unwrap().lock().unwrap().get_module_observer();
+        let eth_clone = self.eth.clone();
+        
+        eth_clone.lock().unwrap().attach_external_observer(gmap_obs); // Attach the gamepad manager observer to the Ethernet interface
+        eth_clone.lock().unwrap().attach_external_observer(sender_event.clone().get_new_observer()); // Attach the custom event observer to the Ethernet interface
+        if let Some(gmpad_arc) = gamepad_manager.clone() {
             gmpad_arc.lock().unwrap().start_listening();
         } else {
             println!("Keyboard manager is not initialized");
         }
-        eth_to_arm.lock().unwrap().start(); // Start the Ethernet interface
+        eth_clone.lock().unwrap().start();
         let ui_handle = self.ui.as_weak(); // Get a weak reference to the UI (to allow ui modification without ownership issues)
         let cam_display_size = self.ui.get_cam_display_size();
 
@@ -123,10 +138,9 @@ impl OsprAiSoftware {
         });
 
         let ui_handle = self.ui.as_weak(); // Get a weak reference to the UI (to allow ui modification without ownership issues)
-        
+        let sender_event_clone = sender_event.clone();
         self.ui.on_arm_drone(move || {
-            let eth = eth_to_arm.lock().unwrap(); // Lock the access(from other threads) during the callback
-            eth.send(String::from("Arm"));
+            sender_event_clone.trigger(MessageType::GUICmd((UICmd{need_arm: true})));
             //Using the weak_ref to put ui modification task in the queue of the event loop (let slint handle it)
             match ui_handle.upgrade_in_event_loop(|ui| {
                                                     ui.set_arm_msg(SharedString::from("DisArm\nDrone"));
@@ -138,12 +152,11 @@ impl OsprAiSoftware {
         });
             
         let ui_handle = self.ui.as_weak(); // Get a weak reference to the UI (to allow ui modification without ownership issues)
-        let eth_to_disarm = self.eth.clone();
         let mut is_drone_init = self.is_drone_init.clone(); // Capture the current state of drone initialization
         let mut ui_copy= self.ui.clone_strong(); // Clone the UI to use in the callback
+        let sender_event_clone = sender_event.clone();
         self.ui.on_disarm_drone(move || {
-            let eth = eth_to_disarm.lock().unwrap(); // Lock the access(from other threads) during the callback
-            eth.send(String::from("DisArm"));
+            sender_event_clone.trigger(MessageType::GUICmd((UICmd{need_arm: false})));
             //Using the weak_ref to put ui modification task in the queue of the event loop (let slint handle it)
             match ui_handle.upgrade_in_event_loop(|gui| {
                                                         gui.set_arm_msg(SharedString::from("Arm\nDrone"));
@@ -166,10 +179,7 @@ impl OsprAiSoftware {
         self.ui.on_stop_logs_record(|| {
             println!("Stop recording logs");
         });
-        let gmpad_clone = self.gamepad_manager.clone();
-        let gmap_obs= gmpad_clone.unwrap().lock().unwrap().get_module_observer();
-        let eth_clone = self.eth.clone();
-        eth_clone.lock().unwrap().attach_external_observer(gmap_obs); // Attach the gamepad manager observer to the Ethernet interface
+        
         //self.start_listening_updates(); // Start listening for updates from the Ethernet interface
         return self.ui.run();
     }
