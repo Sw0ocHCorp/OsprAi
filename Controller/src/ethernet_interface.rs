@@ -70,7 +70,7 @@ impl EthernetInterface {
         }));
     }
 
-    pub fn listen(socket: Arc<UdpSocket>, frame_event: Arc<CustomEvent<MessageType>>) {    
+    fn listen(socket: Arc<UdpSocket>, frame_event: Arc<CustomEvent<MessageType>>) {    
         let mut buf = [0; 1024];
         match socket.recv_from(&mut buf) {
             Ok((size, src)) => {
