@@ -1,19 +1,20 @@
 use tokio::sync::broadcast::{channel, Sender, Receiver};
+use crate::gamepad_manager::GamepadCmd;
 
 #[derive(Debug, Clone)]
 pub enum MessageType {
     UDPFrame(String),
-    Binary(Vec<u8>),
+    ControllerCmd(GamepadCmd),
 }
 
-pub struct Event<T: Clone> {
+pub struct CustomEvent<T: Clone> {
     sender: Sender<T>,
 }
 
-impl<T: Clone> Event<T> {
-    pub fn new() -> Event<T> {
+impl<T: Clone> CustomEvent<T> {
+    pub fn new() -> CustomEvent<T> {
         let (sender, _) = channel::<T>(100);
-        Event {sender}
+        CustomEvent {sender}
     }
 
     pub fn get_new_observer(&self) ->Receiver<T> {

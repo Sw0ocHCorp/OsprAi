@@ -1,0 +1,1 @@
+/usr/bin/c++ CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o -o OsprAiCompanion 

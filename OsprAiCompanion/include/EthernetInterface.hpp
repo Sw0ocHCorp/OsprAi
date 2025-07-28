@@ -5,6 +5,8 @@
 #include <string>
 #include <iostream>
 #include <arpa/inet.h>
+#include <thread>
+#include <EventsManagement.hpp>
 
 using namespace std;
 
@@ -12,19 +14,58 @@ class EthernetInterface
 {
     private:
         string Address;
+        string TargetAddress;
         int Port;
-        bool isClient;
+        int TargetPort;
         int Socket;
-        struct sockaddr_in interfaceAddress;
+        struct sockaddr_in InterfaceAddress;
+        thread Task;
+        bool IsRunning = false;
+        Event<string> FrameReceivedEvent;
     public:
-        EthernetInterface(string address, int port, bool isClient= false) {
-
+        EthernetInterface(string address, int port, string targetAddress, int targetPort) {
             Address = address;
             Port = port;
-            this->isClient = isClient;
+            TargetAddress = targetAddress;
+            TargetPort = targetPort;
+            IsRunning = true;
+            Task = thread(&EthernetInterface::runTask, this);
         }
         ~EthernetInterface(){
+            stopTask();
+        }
 
+        void runTask() {
+            bool isConnected = false;
+            while(this->IsRunning) {
+                char buffer[1024];
+                if (!isConnected) {
+                    isConnected = connect();
+                    if (isConnected) {
+                        cout << "Connected to " << Address << ":" << Port << endl;
+                    }
+                }
+                else if (listenForIncomingFrame(TargetAddress, TargetPort, buffer, sizeof(buffer))) {
+                    if (buffer[0] != '\0') {
+                        FrameReceivedEvent.trigger(string(buffer));
+                        cout << "Received frame: " << buffer << endl;
+                    }
+                    // Process the received frame as needed
+                } else {
+                    cout << "Failed to listen for incoming frame" << endl;
+                }
+            }
+        }
+
+        void stopTask() {
+            this->IsRunning = false;
+            if (Task.joinable()) {
+                Task.join();
+            }
+            if (Socket >= 0) {
+                Socket = -1;
+                cout << "Stop Ethernet Task => Socket closed" << endl;
+            }
         }
 
         bool connect() {
@@ -34,16 +75,14 @@ class EthernetInterface
                 return false;
             }
             cout << "Socket created successfully" << endl;
-            interfaceAddress.sin_family = AF_INET;
-            interfaceAddress.sin_port = htons(Port);
-            interfaceAddress.sin_addr.s_addr = inet_addr(Address.c_str());
-            if (isClient == false) {
-                if (bind(Socket, (struct sockaddr *)&interfaceAddress, sizeof(interfaceAddress)) < 0) {
-                    cout << "Error binding socket" << endl;
-                    return false;
-                }
-                cout << "Socket bind successfully" << endl;
+            InterfaceAddress.sin_family = AF_INET;
+            InterfaceAddress.sin_port = htons(Port);
+            InterfaceAddress.sin_addr.s_addr = inet_addr(Address.c_str());
+            if (bind(Socket, (struct sockaddr *)&InterfaceAddress, sizeof(InterfaceAddress)) < 0) {
+                cout << "Error binding socket" << endl;
+                return false;
             }
+            cout << "Socket bind successfully" << endl;
             return true;
         }
 
@@ -61,17 +100,16 @@ class EthernetInterface
             return true;
         }
 
-        bool listenForIncomingFrame(string targetIpAddress, int targetPort) {
-            char buffer[1024];
+        bool listenForIncomingFrame(string targetIpAddress, int targetPort, char *buffer, int maxSize) {
             struct sockaddr_in sourceAddress;
             socklen_t addrLen = sizeof(sourceAddress);
-            int receivedBytes = recvfrom(Socket, buffer, sizeof(buffer), 0, (struct sockaddr *)&sourceAddress, &addrLen);
+            int receivedBytes = recvfrom(Socket, buffer, maxSize, 0, (struct sockaddr *)&sourceAddress, &addrLen);
             if (receivedBytes < 0) {
                 cout << "Error receiving frame" << endl;
                 return false;
             }
             buffer[receivedBytes] = '\0'; // Null-terminate the received data
-            cout << "Frame received successfully from " << inet_ntoa(sourceAddress.sin_addr) << endl;
+            //cout << "Frame received successfully from " << inet_ntoa(sourceAddress.sin_addr) << endl;
             return true;
         }
 
@@ -81,6 +119,10 @@ class EthernetInterface
 
         int getPort() const {
             return Port;
+        }
+
+        void addFrameReceivedObserver(Observer<string> *observer) {
+            FrameReceivedEvent.addObserver(observer);
         }
 };
 
