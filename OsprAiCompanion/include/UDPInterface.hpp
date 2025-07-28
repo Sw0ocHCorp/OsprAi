@@ -21,7 +21,7 @@ class UDPInterface : public ComInterface
         struct sockaddr_in Interface;
         struct sockaddr_in TargetInterface;
     public:
-        UDPInterface(string address, int port, string targetAddress, int targetPort) {
+        UDPInterface(string address, int port, string targetAddress, int targetPort, FrameParser parser) : ComInterface(parser) {
             Address = address;
             Port = port;
             TargetAddress = targetAddress;
@@ -45,6 +45,7 @@ class UDPInterface : public ComInterface
                 }
                 else if (listenForIncomingFrame(buffer, sizeof(buffer))) {
                     if (buffer[0] != '\0') {
+                        map<string, vector<float>> data= Parser.parseFrame(string(buffer)); 
                         FrameReceivedEvent.trigger(string(buffer));
                         cout << "Received frame: " << buffer << endl;
                     }
