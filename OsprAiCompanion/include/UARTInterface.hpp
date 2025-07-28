@@ -25,13 +25,11 @@ class UARTInterface : public ComInterface
                 }
                 else {
                     listenForIncomingFrame();
-                    /*if (chrono::steady_clock::now() - CurrentTime > chrono::milliseconds(200)) {
+                    if (chrono::steady_clock::now() - CurrentTime > chrono::milliseconds(200)) {
                         cout << "Sending frame..." << endl;
                         sendFrame("test\n");
                         CurrentTime = chrono::steady_clock::now();
-                    }*/
-                    
-                        //isConnected = false;
+                    }
                 }
             }
         }
