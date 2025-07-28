@@ -64,10 +64,6 @@ void Error_Handler(void);
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
 #define B1_EXTI_IRQn EXTI15_10_IRQn
-#define ADDR_IMU1_Pin GPIO_PIN_2
-#define ADDR_IMU1_GPIO_Port GPIOA
-#define ADDR_IMU2_Pin GPIO_PIN_3
-#define ADDR_IMU2_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
 #define MOTOR1_Pin GPIO_PIN_6
@@ -76,8 +72,6 @@ void Error_Handler(void);
 #define MOTOR2_GPIO_Port GPIOC
 #define MOTOR3_Pin GPIO_PIN_8
 #define MOTOR3_GPIO_Port GPIOC
-#define ADDR_IMU0_Pin GPIO_PIN_10
-#define ADDR_IMU0_GPIO_Port GPIOA
 #define TMS_Pin GPIO_PIN_13
 #define TMS_GPIO_Port GPIOA
 #define TCK_Pin GPIO_PIN_14
