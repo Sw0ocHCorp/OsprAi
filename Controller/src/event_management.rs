@@ -1,10 +1,12 @@
 use tokio::sync::broadcast::{channel, Sender, Receiver};
 use crate::gamepad_manager::GamepadCmd;
+use crate::ui::UICmd;
 
 #[derive(Debug, Clone)]
 pub enum MessageType {
     UDPFrame(String),
     ControllerCmd(GamepadCmd),
+    GUICmd(UICmd)
 }
 
 pub struct CustomEvent<T: Clone> {

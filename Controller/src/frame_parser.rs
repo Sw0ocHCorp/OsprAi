@@ -12,18 +12,17 @@ enum ParsingStep {
     CheckSum,
 }
 
+#[derive(Clone)]
 pub struct FrameParser {
     sof: String,
-    parsing_ids: HashMap<String, String>,
-    encoding_ids: HashMap<String, String>,
+    parsing_ids: HashMap<String, String>
 }
 
 impl FrameParser {
-    pub fn new(sof: String, parsing_ids:HashMap<String, String>, encoding_ids : HashMap<String, String>) -> FrameParser {
+    pub fn new(sof: String, parsing_ids:HashMap<String, String>) -> FrameParser {
         FrameParser {
             sof,
             parsing_ids: parsing_ids,
-            encoding_ids: encoding_ids,
         }
     }
 
@@ -123,24 +122,22 @@ impl FrameParser {
             checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
         }
         for (id, values) in data {
-            if let Some(encoded_id) = self.encoding_ids.get(&id) {
-                for i in (0..encoded_id.len()).step_by(2) {
-                    let last_byte = encoded_id[i..i+2].to_string();
+            for i in (0..id.len()).step_by(2) {
+                let last_byte: String = id[i..i+2].to_string();
+                checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
+            }
+            encoded_frame += &id;
+            let data_size = values.len() * 4; // Assuming float values
+            encoded_frame += &format!("{:02x}", data_size);
+            checksum = checksum.wrapping_add(data_size as u8);
+            for value in values {
+                let bits_value = value.to_bits();
+                let hex_value = format!("{:08x}", bits_value);
+                for i in (0..hex_value.len()).step_by(2) {
+                    let last_byte = hex_value[i..i+2].to_string();
                     checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
                 }
-                encoded_frame += &encoded_id;
-                let data_size = values.len() * 4; // Assuming float values
-                encoded_frame += &format!("{:02x}", data_size);
-                checksum = checksum.wrapping_add(data_size as u8);
-                for value in values {
-                    let bits_value = value.to_bits();
-                    let hex_value = format!("{:08x}", bits_value);
-                    for i in (0..hex_value.len()).step_by(2) {
-                        let last_byte = hex_value[i..i+2].to_string();
-                        checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
-                    }
-                    encoded_frame += &hex_value;
-                }
+                encoded_frame += &hex_value;
             }
         }
         let frame_size = (encoded_frame.len() / 2) + 1;

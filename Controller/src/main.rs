@@ -11,7 +11,7 @@ use ui::OsprAiSoftware;
 use crate::frame_parser::FrameParser;
 pub mod frame_parser;
 
-fn main() {
+/*fn main() {
     let mut parser = FrameParser::new("abcd".to_string(), HashMap::from([("0011".to_string(), "test0".to_string()), ("00a1".to_string(), "test1".to_string()), 
                                                                                             ("0044".to_string(), "test2".to_string()), ("00ce".to_string(), "id3".to_string())]),
                                                                             HashMap::from([("encod0".to_string(), "00f1".to_string()), ("encod1".to_string(), "00a2".to_string()), 
@@ -38,28 +38,9 @@ fn main() {
         }
         println!();
     }
-    /*let encodString= parser.encodeFrame({
-        {"encod0", {1.2f, 2.1f, 3.6f}},
-        {"encod1", {4.5f, 5.9f}},
-        {"encod2", {6.7f, 7.8f, 8.9f}},
-        {"encod3", {9.0f}}
-    });
-    cout << "Encoded Frame: " << encodString << endl;
-    map<string, vector<float>> parsedData = parser2.parseFrame(encodString);
-    cout << "Parsed Data: " << endl;
-    for (const auto& [id, values] : parsedData) {
-        cout << "  " << id << ": ";
-        for (float value : values) {
-            cout << value << " ";
-        }
-        cout << endl;
-    }*/
+}*/
 
-
-
-}
-
-/*fn main()  -> Result<(), slint::PlatformError> {
+fn main()  -> Result<(), slint::PlatformError> {
     let mut soft = OsprAiSoftware::new();
     return soft.run();
-}*/
+}
