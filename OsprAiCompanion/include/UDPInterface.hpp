@@ -6,33 +6,31 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <thread>
-#include <EventsManagement.hpp>
+#include "ComInterface.hpp"
 
 using namespace std;
 
-class EthernetInterface
+class UDPInterface : public ComInterface
 {
     private:
         string Address;
         string TargetAddress;
         int Port;
         int TargetPort;
-        int Socket;
-        struct sockaddr_in InterfaceAddress;
-        thread Task;
-        bool IsRunning = false;
-        Event<string> FrameReceivedEvent;
+        int Socket= -1;
+        struct sockaddr_in Interface;
+        struct sockaddr_in TargetInterface;
     public:
-        EthernetInterface(string address, int port, string targetAddress, int targetPort) {
+        UDPInterface(string address, int port, string targetAddress, int targetPort) {
             Address = address;
             Port = port;
             TargetAddress = targetAddress;
             TargetPort = targetPort;
-            IsRunning = true;
-            Task = thread(&EthernetInterface::runTask, this);
-        }
-        ~EthernetInterface(){
-            stopTask();
+            
+            TargetInterface.sin_family = AF_INET;
+            TargetInterface.sin_port = htons(targetPort);
+            TargetInterface.sin_addr.s_addr = inet_addr(targetAddress.c_str());
+            this->startTask();
         }
 
         void runTask() {
@@ -45,7 +43,7 @@ class EthernetInterface
                         cout << "Connected to " << Address << ":" << Port << endl;
                     }
                 }
-                else if (listenForIncomingFrame(TargetAddress, TargetPort, buffer, sizeof(buffer))) {
+                else if (listenForIncomingFrame(buffer, sizeof(buffer))) {
                     if (buffer[0] != '\0') {
                         FrameReceivedEvent.trigger(string(buffer));
                         cout << "Received frame: " << buffer << endl;
@@ -57,10 +55,11 @@ class EthernetInterface
             }
         }
 
-        void stopTask() {
+        void stopTask() override {
             this->IsRunning = false;
-            if (Task.joinable()) {
-                Task.join();
+            thread &task= getTask();
+            if (task.joinable()) {
+                task.join();
             }
             if (Socket >= 0) {
                 Socket = -1;
@@ -69,29 +68,26 @@ class EthernetInterface
         }
 
         bool connect() {
-            Socket= socket(AF_INET, SOCK_DGRAM, 0);
             if (Socket < 0) {
-                cout << "Error creating socket" << endl;
-                return false;
+                Socket= socket(AF_INET, SOCK_DGRAM, 0);
+                if (Socket < 0) {
+                    cout << "Error creating socket" << endl;
+                    return false;
+                }
             }
-            cout << "Socket created successfully" << endl;
-            InterfaceAddress.sin_family = AF_INET;
-            InterfaceAddress.sin_port = htons(Port);
-            InterfaceAddress.sin_addr.s_addr = inet_addr(Address.c_str());
-            if (bind(Socket, (struct sockaddr *)&InterfaceAddress, sizeof(InterfaceAddress)) < 0) {
-                cout << "Error binding socket" << endl;
+            Interface.sin_family = AF_INET;
+            Interface.sin_port = htons(Port);
+            Interface.sin_addr.s_addr = inet_addr(Address.c_str());
+            if (bind(Socket, (struct sockaddr *)&Interface, sizeof(Interface)) < 0) {
                 return false;
             }
             cout << "Socket bind successfully" << endl;
             return true;
         }
 
-        bool sendFrame(string targetIpAddress, int targetPort, string frame) {
-            struct sockaddr_in targetAddress;
-            targetAddress.sin_family = AF_INET;
-            targetAddress.sin_port = htons(targetPort);
-            targetAddress.sin_addr.s_addr = inet_addr(targetIpAddress.c_str());
-            int sentBytes = sendto(Socket, frame.c_str(), frame.size(), 0, (struct sockaddr *)&targetAddress, sizeof(targetAddress));
+        bool sendFrame(string frame) {
+            socklen_t sockLen= sizeof(TargetInterface);
+            int sentBytes = sendto(Socket, frame.c_str(), frame.size(), 0, (struct sockaddr *)&TargetInterface, sockLen);
             if (sentBytes < 0) {
                 cout << "Error sending frame" << endl;
                 return false;
@@ -100,10 +96,9 @@ class EthernetInterface
             return true;
         }
 
-        bool listenForIncomingFrame(string targetIpAddress, int targetPort, char *buffer, int maxSize) {
-            struct sockaddr_in sourceAddress;
-            socklen_t addrLen = sizeof(sourceAddress);
-            int receivedBytes = recvfrom(Socket, buffer, maxSize, 0, (struct sockaddr *)&sourceAddress, &addrLen);
+        bool listenForIncomingFrame(char *buffer, int maxSize) {
+            socklen_t sockLen= sizeof(TargetInterface);
+            int receivedBytes = recvfrom(Socket, buffer, maxSize, 0, (struct sockaddr *)&TargetInterface, &sockLen);
             if (receivedBytes < 0) {
                 cout << "Error receiving frame" << endl;
                 return false;
@@ -119,10 +114,6 @@ class EthernetInterface
 
         int getPort() const {
             return Port;
-        }
-
-        void addFrameReceivedObserver(Observer<string> *observer) {
-            FrameReceivedEvent.addObserver(observer);
         }
 };
 

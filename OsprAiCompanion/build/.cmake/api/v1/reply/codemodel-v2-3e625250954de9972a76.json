@@ -39,7 +39,7 @@
 				{
 					"directoryIndex" : 0,
 					"id" : "OsprAiCompanion::@6890427a1f51a3e7e1df",
-					"jsonFile" : "target-OsprAiCompanion-Debug-b11b446acda9d5415573.json",
+					"jsonFile" : "target-OsprAiCompanion-Debug-22fa424b9caaad9217e0.json",
 					"name" : "OsprAiCompanion",
 					"projectIndex" : 0
 				}
@@ -49,7 +49,7 @@
 	"kind" : "codemodel",
 	"paths" : 
 	{
-		"build" : "/home/Sw0ocH/OsprAi/build",
+		"build" : "/home/Sw0ocH/OsprAi/OsprAiCompanion/build",
 		"source" : "/home/Sw0ocH/OsprAi/OsprAiCompanion"
 	},
 	"version" : 
