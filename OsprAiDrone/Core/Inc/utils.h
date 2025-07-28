@@ -12,6 +12,7 @@
 #include <vector>
 #include <cstdint>
 #include <map>
+#include <math.h>
 
 using namespace std;
 
@@ -20,5 +21,11 @@ int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern);
 bool Equal(vector<uint8_t> target, vector<uint8_t> pattern);
 double LinearInInterval(double value, double minSource, double maxSource, double minTarget, double maxTarget) ;
 uint8_t CharToByte(uint8_t charAsciiCode);
+double Median(vector<double> vec);
+vector<double> SortVec(vector<double> vec);
+
+class FrameParser {
+
+};
 
 #endif /* INC_UTILS_H_ */

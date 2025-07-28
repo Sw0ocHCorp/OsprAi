@@ -49,3 +49,26 @@ uint8_t CharToByte(uint8_t charAsciiCode) {
 
 }
 
+double Median(vector<double> vec) {
+	vec= SortVec(vec);
+	if (vec.size() %2 != 0) {
+		return vec[vec.size()/2];
+	}
+	else {
+		return (vec[vec.size()/2] + vec[vec.size()/2+1]) / 2;
+	}
+}
+
+vector<double> SortVec(vector<double> vec) {
+	for(int i= 0; i < vec.size(); i++) {
+		for (int j= i; j < vec.size(); j++) {
+			//Si suivant inférieur au précédent, on interverti les données
+			if (vec.at(j) < vec.at(i)) {
+				double swapVal= vec.at(i);
+				vec[i]= vec.at(j);
+				vec[j]= swapVal;
+			}
+		}
+	}
+	return vec;
+}

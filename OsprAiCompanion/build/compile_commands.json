@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/Sw0ocH/OsprAi/OsprAiCompanion/build",
+  "command": "/usr/bin/aarch64-linux-gnu-g++ -I/home/Sw0ocH/OsprAi/OsprAiCompanion/include -g -std=c++17 -o CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o -c /home/Sw0ocH/OsprAi/OsprAiCompanion/src/CustomCompanion.cpp",
+  "file": "/home/Sw0ocH/OsprAi/OsprAiCompanion/src/CustomCompanion.cpp"
+}
+]

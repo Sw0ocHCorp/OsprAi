@@ -70,7 +70,6 @@ HAL_StatusTypeDef GpsManager::ExtractData(bool enableInterrupt){
 	}
 	//GET DATA Received by UART Communication
 	this->frameBuffer.push_back(this->incomingByte);
-	uint8_t *test= this->frameBuffer.data();
 	//If END OF FRAME Detected, process frameBuffer
 	if (this->incomingByte == '\n') {
 		//SOF Detection

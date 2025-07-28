@@ -8,7 +8,8 @@
 #ifndef SRC_IMUMANAGER_H_
 #define SRC_IMUMANAGER_H_
 
-#define MPU_SLAVE_ADDR 0xD0
+#define MPU1_SLAVE_ADDR 0x68 << 1
+#define MPU2_SLAVE_ADDR 0x69<< 1
 
 #include "main.h"
 #include "SensorManager.h"
@@ -22,9 +23,11 @@ private:
 	double linAccelVect[3];
 	double rotAccelVect[3];
 	double orientation[3];
+	double motionDirection[3];
 	bool computeChecksum= false;
-	HAL_StatusTypeDef getAccelData(double *linAccelVect, bool enableInterrupt);
-	HAL_StatusTypeDef getGyroData(double *rotAccelVect, bool enableInterrupt);
+	double timestep;
+	HAL_StatusTypeDef getAccelData(double *linAccelVect, bool enableInterrupt, int nSamples);
+	HAL_StatusTypeDef getGyroData(double *rotAccelVect, bool enableInterrupt, int nSamples);
 	HAL_StatusTypeDef ExtractData(bool enableInterrupt);
 	HAL_StatusTypeDef AnswerToRequest(vector<uint8_t> request);
 public:
