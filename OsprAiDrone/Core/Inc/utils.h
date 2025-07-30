@@ -13,6 +13,12 @@
 #include <cstdint>
 #include <map>
 #include <math.h>
+#include <string>
+#include <string.h>
+#include <sstream>
+#include <iomanip>
+#include <iostream>
+#include <memory>
 
 using namespace std;
 
@@ -52,6 +58,34 @@ uint8_t CharToByte(uint8_t charAsciiCode) {
 		realHexaValue -= 'a' - 10;
 }
 
+float hexStringToFloat(string hexString) {
+    unsigned int hexValue;
+    stringstream ss;
+    ss << hex << hexString;
+    ss >> hexValue;
+    float floatValue;
+    memcpy(&floatValue, &hexValue, sizeof(floatValue));
+    return floatValue;
+}
+
+string floatToHexString(float value) {
+    unsigned int hexValue;
+    memcpy(&hexValue, &value, sizeof(value));
+    stringstream ss;
+    ss << hex << hexValue;
+    return ss.str();
+}
+
+string uCharToHexString(unsigned char value) {
+    stringstream ss;
+    ss << std::hex << setw(2) << setfill('0') << static_cast<int>(value);
+    return ss.str();
+}
+
+char intToAsciiChar(int value) {
+    return static_cast<char>(value);
+}
+
 vector<double> SortVec(vector<double> vec) {
 	for(int i= 0; i < vec.size(); i++) {
 		for (int j= i; j < vec.size(); j++) {
@@ -76,9 +110,5 @@ double Median(vector<double> vec) {
 		return (vec[vec.size()/2] + vec[vec.size()/2+1]) / 2;
 	}
 }
-
-class FrameParser {
-
-};
 
 #endif /* INC_UTILS_H_ */
