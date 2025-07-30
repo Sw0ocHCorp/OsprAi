@@ -8,9 +8,37 @@
 #ifndef INC_MOTORSCONTROLLER_H_
 #define INC_MOTORSCONTROLLER_H_
 
+#define MAX_PWM_VALUE 65535
+
 #include "main.h"
-#include <map>
-#include <vector>
+#include "utils.h"
+#include "EventManagement.h"
+
+struct MotorSetpoint : Message {
+	bool IsLLSetpoint;
+	vector<float> PWMSetpoint;
+	bool IsHLSetpoint;
+	vector<float> SpeedVecSetpoint;
+	float AngleSetpoint;
+	vector<float> CurrentSpeedVec;
+	vector<float> CurrentOrientation;
+	vector<float> CurrentLocation;
+};
+
+class MotorSetpointObserver : public Observer<MotorSetpoint> {
+	public:
+		MotorSetpointObserver() : Observer() {
+
+		}
+
+		~MotorSetpointObserver() {
+
+		}
+
+		void Respond(MotorSetpoint *setpoint) {
+			Callback(setpoint);
+		}
+};
 
 namespace Osprai {
 
@@ -45,6 +73,7 @@ namespace Osprai {
 	class MotorsController {
 		private:
 			std::map<TIM_HandleTypeDef *, std::vector<unsigned int>> motorSources;
+			MotorSetpoint CurrentSetpoint;
 			bool isAutonomous= false;
 			PIDController *pids;
 		public:
@@ -69,37 +98,31 @@ namespace Osprai {
 						}
 					}
 				}
-				pids= new PIDController[nMotors];
+				//pids= new PIDController[nMotors];
 				this->isAutonomous= isAutonomous;
 				return status;
 			}
 
 			void SetControlMode(bool isAutonomous) { this->isAutonomous= isAutonomous; }
 
-			void ApplySetPoints(std::vector<int> setPoints)  {
-				int nMotor= 0;
-				for(const auto& timer: this->motorSources) {
-					for (int i= 0; i < timer.second.size(); i++) {
-						switch(timer.second[i]) {
-							case TIM_CHANNEL_1:
-								timer.first->Instance->CCR1= setPoints.at(nMotor);
-								break;
-							case TIM_CHANNEL_2:
-								timer.first->Instance->CCR2= setPoints.at(nMotor);
-								break;
-							case TIM_CHANNEL_3:
-								timer.first->Instance->CCR3= setPoints.at(nMotor);
-								break;
-							case TIM_CHANNEL_4:
-								timer.first->Instance->CCR4= setPoints.at(nMotor);
-								break;
-						}
-						nMotor++;
-					}
+			void TestSetpoint(int value) {
+				for(const auto & source : this->motorSources) {
+					source.first->Instance->CCR1= value;
 				}
 			}
-			void UpdateMotorsSetPoints() {
 
+			void OnSetpointReceived(MotorSetpoint *setpoint) {
+				CurrentSetpoint = *setpoint;
+			}
+
+			void UpdateMotorsCommand() {
+				for(const auto & source : this->motorSources) {
+					int pwmSetpoint= (abs(CurrentSetpoint.AngleSetpoint) / 3.15) * (MAX_PWM_VALUE/2);
+					if (CurrentSetpoint.AngleSetpoint > 0) {
+						pwmSetpoint += (MAX_PWM_VALUE/2);
+					}
+					source.first->Instance->CCR1= pwmSetpoint;
+				}
 			}
 	};
 
