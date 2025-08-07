@@ -10,7 +10,6 @@
 
 #include "main.h"
 #include "utils.h"
-#include <vector>
 #include<map>
 #include "CircularBuffer.h"
 
@@ -58,10 +57,10 @@ class SensorManager {
 			while(this->rxBuffer->getCurrentSize() > 0) {
 				AnswerToRequest(this->rxBuffer->Dequeue());
 			}
+			return HAL_OK;
 		}
 
-		void setI2CInterface(I2C_HandleTypeDef *i2cInterface) { this->i2cInterface= i2cInterface; }
-		I2C_HandleTypeDef *getI2CInterface() { return this->i2cInterface; }
+
 		void setUARTInterface(UART_HandleTypeDef *uartInterface) { this->uartInterface= uartInterface; }
 		UART_HandleTypeDef *getUARTInterface() { return this->uartInterface; }
 		void setSeparator(char separator) { this->separator = separator; }

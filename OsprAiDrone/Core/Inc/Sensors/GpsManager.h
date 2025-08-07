@@ -186,7 +186,6 @@ private:
 		int frameCheckSumIndex= FindPattern(frame, vector<uint8_t> {'*'});
 		uint8_t checkSum= 0;
 		for (int i= 0; i < frameCheckSumIndex; i++) {
-			uint8_t t= frame.at(i);
 			checkSum ^= frame.at(i);
 		}
 		return checkSum;
@@ -213,7 +212,7 @@ private:
 			if (startingIndex>= 0) {
 				this->frameBuffer.erase(this->frameBuffer.begin(), this->frameBuffer.begin() + startingIndex + getRawSof().size());
 				int frameCheckSumIndex= FindPattern(this->frameBuffer, vector<uint8_t> {'*'});
-				if (ComputeNMEACheckSum(this->frameBuffer) == CharToByte(this->frameBuffer.at(frameCheckSumIndex+1)) << 4 | CharToByte(this->frameBuffer.at(frameCheckSumIndex+2)) << 0 &&
+				if (((ComputeNMEACheckSum(this->frameBuffer) == CharToByte(this->frameBuffer.at(frameCheckSumIndex+1)) << 4) | (CharToByte(this->frameBuffer.at(frameCheckSumIndex+2))) << 0) &&
 						FindPattern(this->frameBuffer, vector<uint8_t> {'R', 'M', 'C'})>= 0) {
 					//If Interrupt Mode, call new Interrupt on data reception to maintain the loop
 					if (enableInterrupt) {

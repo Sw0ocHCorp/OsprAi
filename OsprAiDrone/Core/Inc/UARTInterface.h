@@ -60,11 +60,8 @@ namespace Osprai {
 				else if (this->IncomingByte == '\n') {
 					if (Frame.size()> 5)
 						data = Parser.parseFrame(Frame);
-					int sz= data.size();
 					if (data.count("sticks")) {
 						MotorSetpoint setpoint;
-						float test1= data["sticks"].at(1);
-						float test0= data["sticks"].at(0);
 						setpoint.AngleSetpoint = atan2(data["sticks"].at(1), data["sticks"].at(0));
 						MotorSetpointReceivedEvent.Trigger(&setpoint);
 					}

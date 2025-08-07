@@ -41,6 +41,7 @@ public:
 		if (this->head >= this->maxSize) {
 			this->head= 0;
 		}
+		return HAL_OK;
 	}
 
 	vector<uint8_t> Dequeue() {

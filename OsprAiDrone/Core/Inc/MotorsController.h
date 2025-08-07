@@ -13,6 +13,7 @@
 #include "main.h"
 #include "utils.h"
 #include "EventManagement.h"
+#include <queue>
 
 struct MotorSetpoint : Message {
 	bool IsLLSetpoint;
@@ -63,22 +64,22 @@ namespace Osprai {
 		}
 	};
 
-	class ServosController {
-	private:
-	public:
-		ServosController();
-		~ServosController();
-	};
-
 	class MotorsController {
 		private:
+		protected:
 			std::map<TIM_HandleTypeDef *, std::vector<unsigned int>> motorSources;
 			MotorSetpoint CurrentSetpoint;
 			bool isAutonomous= false;
 			PIDController *pids;
+			queue<MotorSetpoint> SetpointsBuffer;
+			int BufferSize;
+			bool HaveReachSetpoint= true;
 		public:
 			MotorsController() {
+			}
 
+			MotorsController(int bufferSize) {
+				BufferSize = bufferSize;
 			}
 
 			virtual ~MotorsController(){
@@ -105,26 +106,64 @@ namespace Osprai {
 
 			void SetControlMode(bool isAutonomous) { this->isAutonomous= isAutonomous; }
 
-			void TestSetpoint(int value) {
-				for(const auto & source : this->motorSources) {
-					source.first->Instance->CCR1= value;
-				}
+			void OnSetpointReceived(MotorSetpoint *setpoint) {
+				while (SetpointsBuffer.size() >= BufferSize)
+					SetpointsBuffer.pop();
+				SetpointsBuffer.push(*setpoint);
 			}
 
-			void OnSetpointReceived(MotorSetpoint *setpoint) {
-				CurrentSetpoint = *setpoint;
+			virtual void UpdateMotorsCommand()= 0;
+	};
+
+	class ServosController : public MotorsController {
+		private:
+			int Accel;
+			int MinDutyCyleValue;
+			int MaxDutyCyleValue;
+			float MaxAngle;
+			int CurrentDCValue;
+		public:
+			ServosController(int accel=1, int minDutyCyleValue= 250, int maxDutyCycleValue= 1250, float maxAngle= 270, int bufferSize = 50) : MotorsController(bufferSize) {
+				Accel = accel;
+				MinDutyCyleValue= minDutyCyleValue;
+				MaxDutyCyleValue = maxDutyCycleValue;
+				if (maxAngle > M_PI)
+					MaxAngle= Deg2Rad(maxAngle, false);
+				CurrentDCValue= minDutyCyleValue;
 			}
+
+			~ServosController() { }
 
 			void UpdateMotorsCommand() {
-				for(const auto & source : this->motorSources) {
-					int pwmSetpoint= (abs(CurrentSetpoint.AngleSetpoint) / 3.15) * (MAX_PWM_VALUE/2);
-					if (CurrentSetpoint.AngleSetpoint > 0) {
-						pwmSetpoint += (MAX_PWM_VALUE/2);
-					}
-					source.first->Instance->CCR1= pwmSetpoint;
+				float targetAngle= CurrentSetpoint.AngleSetpoint;
+				if (CurrentSetpoint.AngleSetpoint < 0)
+					targetAngle += 3.14;
+				int rangeDC= (MaxDutyCyleValue - MinDutyCyleValue) * (M_PI / MaxAngle);
+				int targetDCValue = MinDutyCyleValue + (targetAngle / M_PI)*rangeDC;
+				//If too close to target value => current value = target value
+				if (abs(CurrentDCValue - targetDCValue) <= Accel) {
+					CurrentDCValue = targetDCValue;
+					HaveReachSetpoint = true;
 				}
+				//Need Acceleration
+				if (CurrentDCValue < targetDCValue) {
+					CurrentDCValue += Accel;
+				}
+				//Need Deceleration
+				if(CurrentDCValue > targetDCValue) {
+					CurrentDCValue -= Accel;
+				}
+
+				if (HaveReachSetpoint && SetpointsBuffer.size() > 0) {
+					HaveReachSetpoint = false;
+					CurrentSetpoint = SetpointsBuffer.back();
+					SetpointsBuffer.pop();
+				}
+				for(const auto & source : this->motorSources)
+					source.first->Instance->CCR1= CurrentDCValue;
 			}
 	};
+
 
 } /* namespace Osprai */
 
