@@ -31,7 +31,7 @@ namespace Osprai {
 				int frameSize = 0;
 				int dataSize = 0;
 				unsigned char checksum = 0;
-				for (int i = 0; i < frame.size(); i += 2) {
+				for (int i = 0; i < (int)frame.size(); i += 2) {
 					frameSize--;
 					buffer += frame[i];
 					buffer += frame[i + 1];
@@ -79,7 +79,7 @@ namespace Osprai {
 							else if ((buffer.size()/2) % 2 == 0 && dataSize % 2 == 0 && dataSize % sizeof(float) != 0) {
 								parsedData[dataId].push_back(static_cast<float>(stoi(buffer, nullptr, 16)));
 								buffer.clear();
-								if (parsedData[dataId].size() == dataSize / 2) {
+								if ((int)parsedData[dataId].size() == dataSize / 2) {
 									currentStep = DATA_ID;
 								}
 							}
@@ -101,11 +101,11 @@ namespace Osprai {
 			string encodeFrame(map<string, vector<float>> data) {
 				string encodedFrame = Sof + "00";
 				unsigned char checksum = 0;
-				for (int i= 0; i < Sof.size(); i += 2) {
+				for (int i= 0; i < (int)Sof.size(); i += 2) {
 					checksum += stoi(Sof.substr(i, 2), nullptr, 16);
 				}
 				for (const auto& [id, values] : data) {
-					for (int i= 0; i < id.size(); i += 2) {
+					for (int i= 0; i < (int)id.size(); i += 2) {
 						checksum += stoi(id.substr(i, 2), nullptr, 16);
 					}
 					encodedFrame += id;
@@ -113,7 +113,7 @@ namespace Osprai {
 					checksum += values.size() * sizeof(float);
 					for (const float& value : values) {
 						string hexValue = floatToHexString(value);
-						for (int i = 0; i < hexValue.size(); i += 2) {
+						for (int i = 0; i < (int)hexValue.size(); i += 2) {
 							checksum += stoi(hexValue.substr(i, 2), nullptr, 16);
 						}
 						encodedFrame += hexValue;

@@ -19,15 +19,20 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <algorithm>
 
 using namespace std;
 
 bool Equal(vector<uint8_t> target, vector<uint8_t> pattern) {
-	for(int i= 0; i < (int)pattern.size(); i++) {
-		if (target.at(i) != pattern.at(i))
-			return false;
+	if (target.size() < pattern.size()) {
+		return false;
+	} else {
+		for(int i= 0; i < (int)pattern.size(); i++) {
+			if (target.at(i) != pattern.at(i))
+				return false;
+		}
+		return true;
 	}
-	return true;
 }
 
 int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern) {
@@ -56,6 +61,7 @@ uint8_t CharToByte(uint8_t charAsciiCode) {
 		realHexaValue -= 'A' - 10;
 	else if (realHexaValue >= 'a' && realHexaValue <= 'f')
 		realHexaValue -= 'a' - 10;
+	return realHexaValue;
 }
 
 float hexStringToFloat(string hexString) {
@@ -86,29 +92,48 @@ char intToAsciiChar(int value) {
     return static_cast<char>(value);
 }
 
-vector<double> SortVec(vector<double> vec) {
-	for(int i= 0; i < vec.size(); i++) {
-		for (int j= i; j < vec.size(); j++) {
-			//Si suivant inférieur au précédent, on interverti les données
-			if (vec.at(j) < vec.at(i)) {
-				double swapVal= vec.at(i);
-				vec[i]= vec.at(j);
-				vec[j]= swapVal;
-			}
-		}
-	}
-	return vec;
-}
-
-
-double Median(vector<double> vec) {
-	vec= SortVec(vec);
-	if (vec.size() %2 != 0) {
-		return vec[vec.size()/2];
+float Median(vector<float> vec) {
+	int n= vec.size();
+	sort(vec.begin(), vec.end());
+	if (n %2 != 0) {
+		return vec[n/2];
 	}
 	else {
-		return (vec[vec.size()/2] + vec[vec.size()/2+1]) / 2;
+		return (vec[n/2] + vec[(n-1)/2]) / 2;
 	}
+}
+
+void VecMin(vector<int> data, int *minValue, int *minIndex) {
+	*minValue= data.at(0);
+	*minIndex = 0;
+	for (int i= 0; i < (int)data.size(); i++) {
+		if (data.at(i) < *minValue) {
+			*minValue = data.at(i);
+			*minIndex= i;
+		}
+	}
+}
+
+void VecMax(vector<int> data, int *maxValue, int *maxIndex) {
+	*maxValue= data.at(0);
+	*maxIndex = 0;
+	for (int i= 0; i < (int)data.size(); i++) {
+		if (data.at(i) > *maxValue) {
+			*maxValue = data.at(i);
+			*maxIndex= i;
+		}
+	}
+}
+
+float Deg2Rad(float degAngle, bool needModulo) {
+	float radAngle= (M_PI/180.0)*degAngle;
+	if (needModulo)
+		radAngle= fmod(radAngle, M_PI);
+	return radAngle;
+}
+
+float Rad2Deg(float radAngle) {
+	return (180.0/M_PI)*radAngle;
 }
 
 #endif /* INC_UTILS_H_ */

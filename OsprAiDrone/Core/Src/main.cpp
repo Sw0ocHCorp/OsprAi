@@ -21,17 +21,14 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+//#include "utils.h"
 #include "Sensors/GpsManager.h"
 #include "MotorsController.h"
 #include "Sensors/ImuManager.h"
 #include "UARTInterface.h"
 #include "FrameParser.h"
 #include "EventManagement.h"
-#include <map>
-#include <vector>
-
-using namespace Osprai;
-using namespace std;
+using namespace OsprAi;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -53,35 +50,31 @@ using namespace std;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim8;
 
-UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart5;
+UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-
+GpsManager gps;
+ImuManager imu({MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 2);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_UART4_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
+static void MX_USART3_UART_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
-
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-GpsManager gps(10);
-MotorsController motorController;
-ImuManager imu(10);
-UARTInterface companionInterface(10);
-uint8_t data [16] {0};
-FrameParser *parser;
 /* USER CODE END 0 */
 
 /**
@@ -114,50 +107,32 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_TIM2_Init();
-  MX_UART4_Init();
   MX_TIM8_Init();
   MX_I2C1_Init();
   MX_UART5_Init();
+  MX_USART3_UART_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-  parser = new FrameParser("abcd", {{"000a", "arming"}, {"000b", "sticks"}});
-  companionInterface.setParser(*parser);
-  auto motorObserver = std::make_shared<MotorSetpointObserver>();
-  motorObserver->setCallback(std::bind(&MotorsController::OnSetpointReceived, &motorController, std::placeholders::_1));
-  companionInterface.AttachMotorObserver(motorObserver);
-  //Set each interfaces ockf all the sensors
-    imu.setI2CInterface(&hi2c1);
-    gps.setUARTInterface(&huart4);
-    //Configuration of all the sensors
-    map<TIM_HandleTypeDef *, std::vector<unsigned int> > motorSources;
-    motorController.InitController({{&htim8, {TIM_CHANNEL_1}}}, false);
-    motorController.TestSetpoint(100);
-    imu.SensorConfiguration(nullptr);
-    gps.setSeparator(',');
-    gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
-    companionInterface.setBus(&huart5);
-
-    //HAL_TIM_Base_Start(&htim2);
-    //HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+  gps.SetUARTInterface(&huart3);
+  imu.SetI2CInterface(&hi2c1);
+  gps.SetSeparator(',');
+  //gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
+  HAL_StatusTypeDef status= imu.SensorConfiguration();
+  //gps.UpdateData(true);
+  HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_Base_Start_IT(&htim7);
+  //imu.LaunchRoutine();
+  //imu.UpdateData(true);
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-    //Start Update Data Loop with Interrupt | Set enableInterrupt to False
-    //gps.UpdateData(true);
-    companionInterface.ListeningForFrame();
-    //TIM2 500Hz => Timer for Sensors like Odometry
-    HAL_TIM_Base_Start_IT(&htim2);
-    //
-    //Update Data call in While Loop use Blocking Mode | Set enableInterrupt to False
-    while (1)
-    {
-
+  while (1)
+  {
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-    	//Update of all the power value apply to actuators => Max Frequency
-    	motorController.UpdateMotorsCommand();
-    }
+  }
   /* USER CODE END 3 */
 }
 
@@ -226,7 +201,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x00F12981;
+  hi2c1.Init.Timing = 0x00702991;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -277,9 +252,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 1000;
+  htim2.Init.Prescaler = 800;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 160;
+  htim2.Init.Period = 1000;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -304,6 +279,44 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 4000;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 10000;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
   * @brief TIM8 Initialization Function
   * @param None
   * @retval None
@@ -324,9 +337,9 @@ static void MX_TIM8_Init(void)
 
   /* USER CODE END TIM8_Init 1 */
   htim8.Instance = TIM8;
-  htim8.Init.Prescaler = 0;
+  htim8.Init.Prescaler = 80;
   htim8.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim8.Init.Period = 65535;
+  htim8.Init.Period = 10000;
   htim8.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim8.Init.RepetitionCounter = 0;
   htim8.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -397,41 +410,6 @@ static void MX_TIM8_Init(void)
 }
 
 /**
-  * @brief UART4 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART4_Init(void)
-{
-
-  /* USER CODE BEGIN UART4_Init 0 */
-
-  /* USER CODE END UART4_Init 0 */
-
-  /* USER CODE BEGIN UART4_Init 1 */
-
-  /* USER CODE END UART4_Init 1 */
-  huart4.Instance = UART4;
-  huart4.Init.BaudRate = 9600;
-  huart4.Init.WordLength = UART_WORDLENGTH_8B;
-  huart4.Init.StopBits = UART_STOPBITS_1;
-  huart4.Init.Parity = UART_PARITY_NONE;
-  huart4.Init.Mode = UART_MODE_TX_RX;
-  huart4.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
-  huart4.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart4.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart4.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart4) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART4_Init 2 */
-
-  /* USER CODE END UART4_Init 2 */
-
-}
-
-/**
   * @brief UART5 Initialization Function
   * @param None
   * @retval None
@@ -452,7 +430,7 @@ static void MX_UART5_Init(void)
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
   huart5.Init.Mode = UART_MODE_TX_RX;
-  huart5.Init.HwFlowCtl = UART_HWCONTROL_RTS_CTS;
+  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart5.Init.OverSampling = UART_OVERSAMPLING_16;
   huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
   huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
@@ -463,6 +441,43 @@ static void MX_UART5_Init(void)
   /* USER CODE BEGIN UART5_Init 2 */
 
   /* USER CODE END UART5_Init 2 */
+
+}
+
+/**
+  * @brief USART3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART3_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART3_Init 0 */
+
+  /* USER CODE END USART3_Init 0 */
+
+  /* USER CODE BEGIN USART3_Init 1 */
+
+  /* USER CODE END USART3_Init 1 */
+  huart3.Instance = USART3;
+  huart3.Init.BaudRate = 9600;
+  huart3.Init.WordLength = UART_WORDLENGTH_8B;
+  huart3.Init.StopBits = UART_STOPBITS_1;
+  huart3.Init.Parity = UART_PARITY_NONE;
+  huart3.Init.Mode = UART_MODE_TX_RX;
+  huart3.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart3.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart3.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart3.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT|UART_ADVFEATURE_DMADISABLEONERROR_INIT;
+  huart3.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
+  huart3.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
+  if (HAL_UART_Init(&huart3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART3_Init 2 */
+
+  /* USER CODE END USART3_Init 2 */
 
 }
 
@@ -517,39 +532,41 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-{
-}
-
-void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
-{
-}
-
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	/*if (huart == &huart4) {
-		gps.UpdateData(true);
-	}*/
-	/*if (huart == &huart5) {
-		companionInterface.ListeningForFrame();
-	}*/
-	companionInterface.ListeningForFrame();
-
-}
-
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim == &htim2)
   {
-
-	  // Get sensor measurement
-	  //imu.UpdateData(false);
+	  imu.TakeMeasurement();
   }
+  if (htim == &htim7)
+    {
+	  gps.TakeMeasurement();
+  	  //imu.LaunchRoutine();
+    }
 }
 
-void HAL_I2C_MasterRxCpltCallback(I2C_HandleTypeDef * hi2c)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-  //imu.UpdatePose(true);
+	gps.ProcessMeasurement();
+	//gps.ExtractData(true);
+	//gps.UpdateData(true);
+	/*if (huart == &huart3) {
+
+	}*/
+	/*if (huart == &huart5) {
+		companionInterface.ListeningForFrame();
+	}*/
+	//companionInterface.ListeningForFrame();
+
+}
+
+void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
+{
+	//TestMeasurementRoutine();
+}
+
+void HAL_I2C_ErrorCallback(I2C_HandleTypeDef * hi2c) {
+
 }
 /* USER CODE END 4 */
 
