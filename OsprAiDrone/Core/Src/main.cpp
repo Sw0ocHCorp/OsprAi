@@ -28,7 +28,7 @@
 #include "UARTInterface.h"
 #include "FrameParser.h"
 #include "EventManagement.h"
-using namespace Osprai;
+using namespace OsprAi;
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -50,14 +50,15 @@ using namespace Osprai;
 I2C_HandleTypeDef hi2c1;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim8;
 
 UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
-GpsManager gps(10);
-ImuManager imu(10);
+GpsManager gps;
+ImuManager imu({MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 2);
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -68,6 +69,7 @@ static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
 static void MX_USART3_UART_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
 
@@ -109,16 +111,16 @@ int main(void)
   MX_I2C1_Init();
   MX_UART5_Init();
   MX_USART3_UART_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
-  gps.setUARTInterface(&huart3);
-  imu.setI2CInterface(&hi2c1);
-  gps.setSeparator(',');
+  gps.SetUARTInterface(&huart3);
+  imu.SetI2CInterface(&hi2c1);
+  gps.SetSeparator(',');
   //gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
-  imu.setIMUAddresses({MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR});
-  HAL_StatusTypeDef status= imu.SensorConfiguration(nullptr);
-  imu.setSamplesPerMeasurement(2);
+  HAL_StatusTypeDef status= imu.SensorConfiguration();
   //gps.UpdateData(true);
   HAL_TIM_Base_Start_IT(&htim2);
+  HAL_TIM_Base_Start_IT(&htim7);
   //imu.LaunchRoutine();
   //imu.UpdateData(true);
   /* USER CODE END 2 */
@@ -199,7 +201,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x10909CEC;
+  hi2c1.Init.Timing = 0x00702991;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -273,6 +275,44 @@ static void MX_TIM2_Init(void)
   /* USER CODE BEGIN TIM2_Init 2 */
 
   /* USER CODE END TIM2_Init 2 */
+
+}
+
+/**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 4000;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 10000;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
 
 }
 
@@ -496,15 +536,22 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   if (htim == &htim2)
   {
-	  imu.LaunchRoutine();
+	  imu.TakeMeasurement();
   }
+  if (htim == &htim7)
+    {
+	  gps.TakeMeasurement();
+  	  //imu.LaunchRoutine();
+    }
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+	gps.ProcessMeasurement();
+	//gps.ExtractData(true);
 	//gps.UpdateData(true);
 	/*if (huart == &huart3) {
-		gps.UpdateData(true);
+
 	}*/
 	/*if (huart == &huart5) {
 		companionInterface.ListeningForFrame();
@@ -516,7 +563,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
 	//TestMeasurementRoutine();
-	imu.ExtractData(true);
 }
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef * hi2c) {

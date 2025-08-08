@@ -19,15 +19,20 @@
 #include <iomanip>
 #include <iostream>
 #include <memory>
+#include <algorithm>
 
 using namespace std;
 
 bool Equal(vector<uint8_t> target, vector<uint8_t> pattern) {
-	for(int i= 0; i < (int)pattern.size(); i++) {
-		if (target.at(i) != pattern.at(i))
-			return false;
+	if (target.size() < pattern.size()) {
+		return false;
+	} else {
+		for(int i= 0; i < (int)pattern.size(); i++) {
+			if (target.at(i) != pattern.at(i))
+				return false;
+		}
+		return true;
 	}
-	return true;
 }
 
 int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern) {
@@ -87,28 +92,14 @@ char intToAsciiChar(int value) {
     return static_cast<char>(value);
 }
 
-vector<float> SortVec(vector<float> vec) {
-	for(int i= 0; i < (int)vec.size(); i++) {
-		for (int j= i; j < (int)vec.size(); j++) {
-			//Si suivant inférieur au précédent, on interverti les données
-			if (vec.at(j) < vec.at(i)) {
-				float swapVal= vec.at(i);
-				vec[i]= vec.at(j);
-				vec[j]= swapVal;
-			}
-		}
-	}
-	return vec;
-}
-
-
 float Median(vector<float> vec) {
-	vec= SortVec(vec);
-	if (vec.size() %2 != 0) {
-		return vec.at(vec.size()/2);
+	int n= vec.size();
+	sort(vec.begin(), vec.end());
+	if (n %2 != 0) {
+		return vec[n/2];
 	}
 	else {
-		return (vec.at(vec.size()/2) + vec.at(vec.size()/2+1)) / 2;
+		return (vec[n/2] + vec[(n-1)/2]) / 2;
 	}
 }
 
