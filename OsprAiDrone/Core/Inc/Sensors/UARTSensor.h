@@ -28,7 +28,7 @@ namespace OsprAi {
 				UartInterface= uartInterface;
 			}
 
-			virtual HAL_StatusTypeDef TakeMeasurement() = 0;
+			virtual void TakeMeasurement() = 0;
 	};
 }
 

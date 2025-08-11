@@ -47,14 +47,16 @@ class ImuManager : public I2CSensor {
 private:
 	float AccelRange;
 	float GyroRange;
-	vector<vector<float>> MeasurementData;
 	uint8_t RawData[6];
 	float LinAccelVect[3];
 	float RotAccelVect[3];
 	float Orientation[3];
 	float MotionDirection[3];
+	int SamplesTaken;
+	int SensorIndex;
+	int IsMeasureAccel=true;
 
-	vector<float> ProcessAccelData(uint8_t *rawData) {
+	void ProcessAccelData(uint8_t *rawData, float *processedAccel) {
 		int16_t signAccel[3];
 		signAccel[0] = (((int16_t)rawData[0] << 8) | (rawData[1] << 0));
 		signAccel[1] = (((int16_t)rawData[2] << 8) | (rawData[3] << 0));
@@ -62,11 +64,14 @@ private:
 		float xAccel = (float)signAccel[0] / (pow((double)2, (double)16) / this->AccelRange);
 		float yAccel = (float)signAccel[1] / (pow((double)2, (double)16) / this->AccelRange);
 		float zAccel = (float)signAccel[2] / (pow((double)2, (double)16) / this->AccelRange);
-		return {xAccel, yAccel, zAccel};
+		processedAccel[0] = xAccel;
+		processedAccel[1] = yAccel;
+		processedAccel[2] = zAccel;
 	}
 
-	vector<float> ProcessGyroData(uint8_t *rawGyro) {
+	void ProcessGyroData(uint8_t *rawGyro, float *processedGyro) {
 		int16_t signGyro[3];
+
 		signGyro[0] = (((int16_t)rawGyro[0] << 8) | (rawGyro[1] << 0));
 		signGyro[1] = (((int16_t)rawGyro[2] << 8) | (rawGyro[3] << 0));
 		signGyro[2] = (((int16_t)rawGyro[4] << 8) + (rawGyro[5] << 0));
@@ -74,10 +79,14 @@ private:
 		float xRota = (float)signGyro[0] / (pow((double)2, (double)16) / this->GyroRange);
 		float yRota = (float)signGyro[1] / (pow((double)2, (double)16) / this->GyroRange);
 		float zRota = (float)signGyro[2] / (pow((double)2, (double)16) / this->GyroRange);
-		return {xRota, yRota, zRota};
+		processedGyro[0] = xRota;
+		processedGyro[1] = yRota;
+		processedGyro[2] = zRota;
 	}
 
 public:
+	int32_t cpt;
+
 	ImuManager(vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(sensorAddresses, samplesPerMes) {
 		// TODO Auto-generated constructor stub
 
@@ -131,50 +140,88 @@ public:
 		return status;
 	}
 
-	HAL_StatusTypeDef TakeMeasurement() {
-		HAL_StatusTypeDef status = HAL_OK;
-		if (IsExecMeasurement == false) {
-			IsExecMeasurement = true;
-			//Acquisition of IMUs Data in Blocking mode
-			vector<vector<float>> accelData;
-			vector<vector<float>> gyroData;
-			for (int i= 0; i < 3; i++){
-				accelData.push_back({});
-				gyroData.push_back({});
+	void StartMeasurement() {
+		SamplesTaken = 0;
+		IsMeasureAccel = true;
+		IsRoutineFinished= false;
+		SensorIndex= 0;
+		if (MeasurementData[0].size() != 0) {
+			for (int i = 0; i < (int)MeasurementData.size(); i++) {
+				MeasurementData[i].clear();
 			}
-			for (int i= 0; i < (int)SensorAddresses.size(); i++) {
-				for(int j= 0; j < SamplesPerMes; j++) {
-					status= HAL_I2C_Mem_Read(I2cInterface, SensorAddresses.at(i), 0x3B, 1, RawData, 6, 1);
-					if (status == HAL_ERROR) {
-						int a= 1;
-					}
-					vector<float> processedAccel= ProcessAccelData(RawData);
-					float *test= processedAccel.data();
-					for(int k= 0; k < (int)processedAccel.size(); k++) {
-						accelData.at(k).push_back(processedAccel.at(k));
-					}
-					status= HAL_I2C_Mem_Read(I2cInterface, SensorAddresses.at(i), 0x43, 1, RawData, 6, 1);
-					if (status == HAL_ERROR) {
-						int a= 1;
-					}
-					vector<float> processedGyro= ProcessGyroData(RawData);
-					float *test2= processedGyro.data();
-					for(int k= 0; k < (int)processedGyro.size(); k++) {
-						gyroData.at(k).push_back(processedGyro.at(k));
-					}
+		}
+		HAL_StatusTypeDef status= HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x3B, 1, RawData, 6);
+		int a= 12;
+	}
+
+	void TakeMeasurement(uint8_t sensorAddress, uint8_t memAddress) {
+		/*bool IsDataValid= false;
+		for(int i= 0; i < (int)SensorAddresses.size(); i++) {
+			if (SensorAddresses[i] == sensorAddress &&
+					((IsMeasureAccel == true && memAddress == 0x3B) ||
+						(IsMeasureAccel == false && memAddress == 0x43))) {
+				IsDataValid = true;
+				break;
+
+			}
+		}*/
+		//ELSE IF the Routine is not finished we need to get more measures
+		if(IsRoutineFinished == false) {
+			SamplesTaken++;
+			//Compute the Accel Vector from this received sample
+			if (IsMeasureAccel) {
+				float accelData[3];
+				ProcessAccelData(RawData, accelData);
+				for (int i = 0; i < (int)MeasurementData.size(); i++) {
+					MeasurementData[i].push_back(accelData[i]);
 				}
 			}
-			LinAccelVect[0]= Median(accelData[0]);
-			LinAccelVect[1]= Median(accelData[1]);
-			LinAccelVect[2]= Median(accelData[2]);
-			RotAccelVect[0]= Median(gyroData[0]);
-			RotAccelVect[1]= Median(gyroData[1]);
-			RotAccelVect[2]=Median(gyroData[2]);
+			//Compute the Gyro Vector from this received sample
+			else {
+				float gyroData[3];
+				ProcessGyroData(RawData, gyroData);
+				for (int i = 0; i < (int)MeasurementData.size(); i++) {
+					MeasurementData[i].push_back(gyroData[i]);
+				}
+			}
 
+			// IF we have taken enough measures with the current Sensor => Change the sensor address used for the next measures or go to other type of measure
+			if (SamplesTaken >= SamplesPerMes) {
+				SamplesTaken = 0;
+				SensorIndex++;
+				//If we have taken enough measures with ALL the Sensors => Go to other type of measures
+				if (SensorIndex >= SensorAddresses.size()) {
+					SensorIndex = 0;
+					//Compute the real Accel Vector because we have all the data needed to do it(Data from N samples)
+					// => Go to Gyro Measurement
+					if (IsMeasureAccel) {
+						for (int i = 0; i < (int)MeasurementData.size(); i++) {
+							float *t= MeasurementData[i].data();
+							LinAccelVect[i] = Median(MeasurementData[i]);
+							MeasurementData[i].clear();
+						}
+					}
+					//Compute the Gyro Vector because we have all the data needed to do it(Data from N samples)
+					//  => End the measurement routine
+					else {
+						IsRoutineFinished= true;
+						for (int i = 0; i < (int)MeasurementData.size(); i++) {
+							float *t= MeasurementData[i].data();
+							RotAccelVect[i] = Median(MeasurementData[i]);
+							MeasurementData[i].clear();
+						}
+					}
+					IsMeasureAccel = !IsMeasureAccel;
+				}
+			}
+			if (IsRoutineFinished == false) {
+				if (IsMeasureAccel) {
+					HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x3B, 1, RawData, 6);
+				} else {
+					HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x43, 1, RawData, 6);
+				}
+			}
 		}
-
-		IsExecMeasurement = false;
-		return status;
 	}
 };
 

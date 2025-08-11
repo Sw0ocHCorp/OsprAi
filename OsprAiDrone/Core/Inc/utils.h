@@ -35,18 +35,82 @@ bool Equal(vector<uint8_t> target, vector<uint8_t> pattern) {
 	}
 }
 
-int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern) {
-	int index= -1;
-	for (int i= 0; i < (int)targetStr.size(); i++) {
-		vector<uint8_t> potentialPattern;
-		for (int j= i; j < min((int)targetStr.size() ,i + (int)pattern.size()); j++) {
-			potentialPattern.push_back(targetStr.at(j));
+bool Equal(uint8_t *target, int targetSize, uint8_t *pattern, int patternSize) {
+	if (targetSize < patternSize) {
+		return false;
+	} else {
+		for(int i= 0; i < patternSize; i++) {
+			if (target[i] != pattern[i])
+				return false;
 		}
-		if (Equal(potentialPattern, pattern)) {
-			index= i;
+		return true;
+	}
+}
+
+int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern, bool findFromEnd= false) {
+	int index= -1;
+	int i= 0;
+	if (targetStr.size() >= pattern.size()) {
+		if (findFromEnd) {
+			for (int i= (int)targetStr.size() - 1; i >= 0; i--) {
+				vector<uint8_t> potentialPattern;
+				for (int j= i; j < min((int)targetStr.size() ,i + (int)pattern.size()); j++) {
+					potentialPattern.push_back(targetStr.at(j));
+				}
+				if (Equal(potentialPattern, pattern)) {
+					index= i;
+					return i;
+				}
+			}
+		} else {
+			for (int i= 0; i < (int)targetStr.size(); i++) {
+				vector<uint8_t> potentialPattern;
+				for (int j= i; j < min((int)targetStr.size() ,i + (int)pattern.size()); j++) {
+					potentialPattern.push_back(targetStr.at(j));
+				}
+				if (Equal(potentialPattern, pattern)) {
+					index= i;
+					return i;
+				}
+			}
 		}
 	}
 	return index;
+}
+
+int FindPattern(uint8_t *targetStr, int targetStrSize, uint8_t *pattern, int patternSize, bool findFromEnd= false) {
+	int index= -1;
+	if (targetStrSize >= patternSize) {
+		if (findFromEnd) {
+			for (int i= (int)targetStrSize - 1; i >= 0; i--) {
+				vector<uint8_t> potentialPattern;
+				for (int j= i; j < min((int)targetStrSize ,i + patternSize); j++) {
+					potentialPattern.push_back(targetStr[j]);
+				}
+				if (Equal(potentialPattern.data(), potentialPattern.size(), pattern, patternSize)) {
+					index= i;
+					return i;
+				}
+			}
+		} else {
+			for (int i= 0; i < targetStrSize; i++) {
+				vector<uint8_t> potentialPattern;
+				for (int j= i; j < min((int)targetStrSize ,i + patternSize); j++) {
+					potentialPattern.push_back(targetStr[j]);
+				}
+				uint8_t *test = potentialPattern.data();
+				if (Equal(potentialPattern.data(), potentialPattern.size(), pattern, patternSize)) {
+					index= i;
+					return i;
+				}
+			}
+		}
+	}
+	return index;
+}
+
+bool IsEOP(uint8_t *packet, int packetSize, uint8_t eopValue) {
+	return FindPattern(packet, packetSize, new uint8_t[1]{eopValue}, 1, true);
 }
 
 double LinearInInterval(double value, double minSource, double maxSource, double minTarget, double maxTarget) {

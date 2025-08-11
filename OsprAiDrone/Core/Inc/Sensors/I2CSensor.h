@@ -16,13 +16,17 @@ namespace OsprAi {
 		protected:
 			I2C_HandleTypeDef *I2cInterface;
 			vector<int> SensorAddresses;
+			vector<vector<float>> MeasurementData;
 			int SamplesPerMes;
-			bool IsExecMeasurement= false;
+			bool IsRoutineFinished= false;
 
 		public:
 			I2CSensor(vector<int> sensorAddresses, int samplesPerMes) {
 				SamplesPerMes= samplesPerMes;
 				SensorAddresses = sensorAddresses;
+				for (int i= 0; i < 3; i++) {
+					MeasurementData.push_back({});
+				}
 			}
 
 			~I2CSensor() {
@@ -32,7 +36,7 @@ namespace OsprAi {
 				I2cInterface= i2cInterface;
 			}
 
-			virtual HAL_StatusTypeDef TakeMeasurement() = 0;
+			virtual void TakeMeasurement(uint8_t sensorAddress, uint8_t memAddress) = 0;
 	};
 }
 
