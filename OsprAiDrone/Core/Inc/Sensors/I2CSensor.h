@@ -16,8 +16,10 @@ namespace OsprAi {
 		protected:
 			I2C_HandleTypeDef *I2cInterface;
 			vector<int> SensorAddresses;
-			vector<vector<float>> MeasurementData;
+			vector<vector<float>> MeasurementsData;
 			int SamplesPerMes;
+			int SamplesTaken;
+			int SensorIndex;
 			bool IsRoutineFinished= false;
 
 		public:
@@ -25,7 +27,7 @@ namespace OsprAi {
 				SamplesPerMes= samplesPerMes;
 				SensorAddresses = sensorAddresses;
 				for (int i= 0; i < 3; i++) {
-					MeasurementData.push_back({});
+					MeasurementsData.push_back({});
 				}
 			}
 
@@ -36,7 +38,9 @@ namespace OsprAi {
 				I2cInterface= i2cInterface;
 			}
 
-			virtual void TakeMeasurement(uint8_t sensorAddress, uint8_t memAddress) = 0;
+			virtual void AskForMeasurement() = 0;
+
+			virtual bool ProcessMeasurement(uint8_t sensorAddress, uint8_t memAddress) = 0;
 	};
 }
 

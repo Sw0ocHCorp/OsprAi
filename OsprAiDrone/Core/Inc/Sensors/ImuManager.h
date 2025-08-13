@@ -52,8 +52,7 @@ private:
 	float RotAccelVect[3];
 	float Orientation[3];
 	float MotionDirection[3];
-	int SamplesTaken;
-	int SensorIndex;
+
 	int IsMeasureAccel=true;
 
 	void ProcessAccelData(uint8_t *rawData, float *processedAccel) {
@@ -140,31 +139,35 @@ public:
 		return status;
 	}
 
-	void StartMeasurement() {
+	void AskForMeasurement() {
+		if (SamplesTaken < SamplesPerMes && (SamplesTaken > 0 || SensorIndex > 0)) {
+			if (IsMeasureAccel) {
+				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+					float *t= MeasurementsData[i].data();
+					LinAccelVect[i] = Median(MeasurementsData[i]);
+					MeasurementsData[i].clear();
+				}
+			} else {
+				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+					RotAccelVect[i] = Median(MeasurementsData[i]);
+					MeasurementsData[i].clear();
+				}
+			}
+		}
 		SamplesTaken = 0;
 		IsMeasureAccel = true;
 		IsRoutineFinished= false;
 		SensorIndex= 0;
-		if (MeasurementData[0].size() != 0) {
-			for (int i = 0; i < (int)MeasurementData.size(); i++) {
-				MeasurementData[i].clear();
+		if (MeasurementsData[0].size() != 0) {
+			for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+				MeasurementsData[i].clear();
 			}
 		}
 		HAL_StatusTypeDef status= HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x3B, 1, RawData, 6);
 		int a= 12;
 	}
 
-	void TakeMeasurement(uint8_t sensorAddress, uint8_t memAddress) {
-		/*bool IsDataValid= false;
-		for(int i= 0; i < (int)SensorAddresses.size(); i++) {
-			if (SensorAddresses[i] == sensorAddress &&
-					((IsMeasureAccel == true && memAddress == 0x3B) ||
-						(IsMeasureAccel == false && memAddress == 0x43))) {
-				IsDataValid = true;
-				break;
-
-			}
-		}*/
+	bool ProcessMeasurement(uint8_t sensorAddress, uint8_t memAddress) {
 		//ELSE IF the Routine is not finished we need to get more measures
 		if(IsRoutineFinished == false) {
 			SamplesTaken++;
@@ -172,16 +175,16 @@ public:
 			if (IsMeasureAccel) {
 				float accelData[3];
 				ProcessAccelData(RawData, accelData);
-				for (int i = 0; i < (int)MeasurementData.size(); i++) {
-					MeasurementData[i].push_back(accelData[i]);
+				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+					MeasurementsData[i].push_back(accelData[i]);
 				}
 			}
 			//Compute the Gyro Vector from this received sample
 			else {
 				float gyroData[3];
 				ProcessGyroData(RawData, gyroData);
-				for (int i = 0; i < (int)MeasurementData.size(); i++) {
-					MeasurementData[i].push_back(gyroData[i]);
+				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+					MeasurementsData[i].push_back(gyroData[i]);
 				}
 			}
 
@@ -195,20 +198,18 @@ public:
 					//Compute the real Accel Vector because we have all the data needed to do it(Data from N samples)
 					// => Go to Gyro Measurement
 					if (IsMeasureAccel) {
-						for (int i = 0; i < (int)MeasurementData.size(); i++) {
-							float *t= MeasurementData[i].data();
-							LinAccelVect[i] = Median(MeasurementData[i]);
-							MeasurementData[i].clear();
+						for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+							LinAccelVect[i] = Median(MeasurementsData[i]);
+							MeasurementsData[i].clear();
 						}
 					}
 					//Compute the Gyro Vector because we have all the data needed to do it(Data from N samples)
 					//  => End the measurement routine
 					else {
 						IsRoutineFinished= true;
-						for (int i = 0; i < (int)MeasurementData.size(); i++) {
-							float *t= MeasurementData[i].data();
-							RotAccelVect[i] = Median(MeasurementData[i]);
-							MeasurementData[i].clear();
+						for (int i = 0; i < (int)MeasurementsData.size(); i++) {
+							RotAccelVect[i] = Median(MeasurementsData[i]);
+							MeasurementsData[i].clear();
 						}
 					}
 					IsMeasureAccel = !IsMeasureAccel;
@@ -222,6 +223,7 @@ public:
 				}
 			}
 		}
+		return IsRoutineFinished;
 	}
 };
 

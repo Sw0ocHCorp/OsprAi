@@ -25,6 +25,7 @@
 #include "Sensors/GpsManager.h"
 #include "MotorsController.h"
 #include "Sensors/ImuManager.h"
+#include "Sensors/BarometerManager.h"
 #include "UARTInterface.h"
 #include "FrameParser.h"
 #include "EventManagement.h"
@@ -48,6 +49,7 @@ using namespace OsprAi;
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim5;
@@ -58,10 +60,17 @@ UART_HandleTypeDef huart3;
 
 /* USER CODE BEGIN PV */
 GpsManager gps;
-ImuManager imu({MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 2);
+ImuManager imu({MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 3);
+BarometerManager barom({BARO1_SLAVE_ADDR}, 1);
 uint32_t start= HAL_GetTick();
-int cpt1= 0;
+int cpt1= 12;
 int cpt2= 0;
+int cpt3 = 0;
+int cpt4= 3;
+int cpt5= 0;
+int cpt6= 0;
+int timerDelay;
+uint32_t startTime;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -73,6 +82,7 @@ static void MX_I2C1_Init(void);
 static void MX_UART5_Init(void);
 static void MX_USART3_UART_Init(void);
 static void MX_TIM5_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
 
@@ -115,14 +125,17 @@ int main(void)
   MX_UART5_Init();
   MX_USART3_UART_Init();
   MX_TIM5_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   gps.SetUARTInterface(&huart3);
   imu.SetI2CInterface(&hi2c1);
+  barom.SetI2CInterface(&hi2c1);
   //gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
   HAL_StatusTypeDef status= imu.SensorConfiguration();
+  status= barom.SensorConfiguration();
   //gps.UpdateData(true);
   HAL_TIM_Base_Start_IT(&htim2);
-  HAL_TIM_Base_Start_IT(&htim5);
+  //HAL_TIM_Base_Start_IT(&htim5);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -201,7 +214,7 @@ static void MX_I2C1_Init(void)
 
   /* USER CODE END I2C1_Init 1 */
   hi2c1.Instance = I2C1;
-  hi2c1.Init.Timing = 0x10909CEC;
+  hi2c1.Init.Timing = 0x00300F33;
   hi2c1.Init.OwnAddress1 = 0;
   hi2c1.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
   hi2c1.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
@@ -227,9 +240,65 @@ static void MX_I2C1_Init(void)
   {
     Error_Handler();
   }
+
+  /** I2C Fast mode Plus enable
+  */
+  HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C1);
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x00300F33;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** I2C Fast mode Plus enable
+  */
+  HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C2);
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -503,8 +572,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
@@ -543,24 +612,46 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim == &htim2)
 	{
-		imu.StartMeasurement();
+		startTime= HAL_GetTick();
+		imu.AskForMeasurement();
+
+
 	}
 	if (htim == &htim5) {
-		gps.TakeMeasurement();
+
+		//gps.TakeMeasurement();
 	}
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
-	gps.TakeMeasurement();
+	//gps.TakeMeasurement();
 
 }
 
 void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
+	if (hi2c == &hi2c1) {
+		if (hi2c->Devaddress == 0xEC) {
+			if (barom.IsDataAvailable()) {
+				if (hi2c->Instance->TXDR == 0xF3) {
+					barom.AskForMeasurement();
+				} else {
+					barom.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
+				}
+			}
+		}
+		else if (imu.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR)) {
+			if (barom.IsMeasurementCalled() == false)
+				barom.LaunchMeasurementRoutine();
+			else
+				barom.CheckIfDataAvailable();
+		}
+	} else {
 
-	imu.TakeMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
-	//TestMeasurementRoutine();
+	}
+
+
 }
 
 void HAL_I2C_ErrorCallback(I2C_HandleTypeDef * hi2c) {
