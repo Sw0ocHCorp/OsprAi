@@ -66,7 +66,6 @@ public:
 	uint8_t IncomingBytes[150];
 	uint8_t State = TIMESTAMP;
 	GpsManager() {
-
 	}
 
 	virtual ~GpsManager() {

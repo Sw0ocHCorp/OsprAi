@@ -12,7 +12,7 @@
 #include "utils.h"
 
 namespace OsprAi {
-	class I2CSensor {
+	class I2CSensor : public ScheduledModule {
 		protected:
 			I2C_HandleTypeDef *I2cInterface;
 			vector<int> SensorAddresses;
@@ -37,6 +37,8 @@ namespace OsprAi {
 			void SetI2CInterface(I2C_HandleTypeDef *i2cInterface) {
 				I2cInterface= i2cInterface;
 			}
+
+			virtual void ExecMainTask()= 0;
 
 			virtual void AskForMeasurement() = 0;
 

@@ -139,6 +139,10 @@ public:
 		return status;
 	}
 
+	void ExecMainTask() {
+		AskForMeasurement();
+	}
+
 	void AskForMeasurement() {
 		if (SamplesTaken < SamplesPerMes && (SamplesTaken > 0 || SensorIndex > 0)) {
 			if (IsMeasureAccel) {
@@ -221,6 +225,8 @@ public:
 				} else {
 					HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x43, 1, RawData, 6);
 				}
+			} else {
+				CallNextModuleEvent.Trigger(nullptr);
 			}
 		}
 		return IsRoutineFinished;

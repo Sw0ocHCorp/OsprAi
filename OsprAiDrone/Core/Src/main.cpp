@@ -127,15 +127,17 @@ int main(void)
   MX_TIM5_Init();
   MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
-  gps.SetUARTInterface(&huart3);
+  //gps.SetUARTInterface(&huart3);
+  //gps.SetBaudRate(230400);
   imu.SetI2CInterface(&hi2c1);
   barom.SetI2CInterface(&hi2c1);
   //gps.setSof(vector<uint8_t> {'$'}, vector<uint8_t> {'a','b', 'c', 'd'});
   HAL_StatusTypeDef status= imu.SensorConfiguration();
   status= barom.SensorConfiguration();
   //gps.UpdateData(true);
+  imu.SetNextModule(&barom);
   HAL_TIM_Base_Start_IT(&htim2);
-  //HAL_TIM_Base_Start_IT(&htim5);
+  HAL_TIM_Base_Start_IT(&htim5);
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -501,7 +503,7 @@ static void MX_UART5_Init(void)
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
+  huart5.Init.BaudRate = 230400;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
@@ -536,7 +538,7 @@ static void MX_USART3_UART_Init(void)
 
   /* USER CODE END USART3_Init 1 */
   huart3.Instance = USART3;
-  huart3.Init.BaudRate = 9600;
+  huart3.Init.BaudRate = 115200;
   huart3.Init.WordLength = UART_WORDLENGTH_8B;
   huart3.Init.StopBits = UART_STOPBITS_1;
   huart3.Init.Parity = UART_PARITY_NONE;
@@ -641,12 +643,8 @@ void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 				}
 			}
 		}
-		else if (imu.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR)) {
-			if (barom.IsMeasurementCalled() == false)
-				barom.LaunchMeasurementRoutine();
-			else
-				barom.CheckIfDataAvailable();
-		}
+		else
+			imu.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
 	} else {
 
 	}

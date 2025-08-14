@@ -25,7 +25,9 @@ class Observer {
 
 		virtual ~Observer() { }
 
-		virtual void Respond(T *data)= 0;
+		void Respond(T *data) {
+			Callback(data);
+		}
 
 		void setCallback(std::function<void(T *)> callback) {
 			Callback = callback;
@@ -56,6 +58,29 @@ class Event {
 				Observers.end()
 			);
 		}
+};
+
+class ScheduledModule {
+	private:
+
+	protected:
+		Event<void> CallNextModuleEvent;
+		std::shared_ptr<Observer<void>> ExecTaskObserver;
+
+	public:
+		ScheduledModule() {
+			ExecTaskObserver = std::make_shared<Observer<void>>();
+			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::ExecMainTask, this));
+
+		}
+
+
+		void SetNextModule(ScheduledModule *nextModule) {
+			CallNextModuleEvent.AddObserver(nextModule->ExecTaskObserver);
+		}
+
+		virtual void ExecMainTask()= 0;
+
 };
 
 #endif /* INC_EVENTMANAGEMENT_H_ */

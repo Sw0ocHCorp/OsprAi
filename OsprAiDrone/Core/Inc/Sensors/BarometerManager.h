@@ -132,10 +132,6 @@ namespace OsprAi {
 			return status;
 		}
 
-		bool IsMeasurementCalled() {
-			return MeasurementCalled;
-		}
-
 		bool IsDataAvailable() {
 			if ((DevStatus & 1) == 0 && (DevStatus & 8) == 0) {
 				return true;
@@ -143,7 +139,13 @@ namespace OsprAi {
 			else {
 				return false;
 			}
-			//return (bool)(DevStatus & 1 == 0) && (bool)(DevStatus & 8 == 0);
+		}
+
+		void ExecMainTask() {
+			if (MeasurementCalled == false)
+				LaunchMeasurementRoutine();
+			else
+				CheckIfDataAvailable();
 		}
 
 		void LaunchMeasurementRoutine() {
@@ -185,6 +187,7 @@ namespace OsprAi {
 			}
 			MeasurementCalled= false;
 			DevStatus= 0;
+			CallNextModuleEvent.Trigger(nullptr);
 			return true;
 		}
 	};
