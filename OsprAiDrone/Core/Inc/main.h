@@ -64,6 +64,8 @@ void Error_Handler(void);
 #define B1_Pin GPIO_PIN_13
 #define B1_GPIO_Port GPIOC
 #define B1_EXTI_IRQn EXTI15_10_IRQn
+#define UART_Process_Tracker_Pin GPIO_PIN_3
+#define UART_Process_Tracker_GPIO_Port GPIOA
 #define LD2_Pin GPIO_PIN_5
 #define LD2_GPIO_Port GPIOA
 #define MOTOR1_Pin GPIO_PIN_6

@@ -86,7 +86,7 @@ private:
 public:
 	int32_t cpt;
 
-	ImuManager(vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(sensorAddresses, samplesPerMes) {
+	ImuManager(int taskFreq, vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(taskFreq, sensorAddresses, samplesPerMes) {
 		// TODO Auto-generated constructor stub
 
 	}
@@ -140,7 +140,10 @@ public:
 	}
 
 	void ExecMainTask() {
-		AskForMeasurement();
+		if (HAL_GetTick() - StartTime >= 1000 / Freq) {
+			StartTime = HAL_GetTick();
+			AskForMeasurement();
+		}
 	}
 
 	void AskForMeasurement() {

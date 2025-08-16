@@ -5,8 +5,8 @@
  *      Author: nclsr
  */
 
-#ifndef INC_MOTORSCONTROLLER_H_
-#define INC_MOTORSCONTROLLER_H_
+#ifndef INC_ACTUATORCONTROLLER_H_
+#define INC_ACTUATORCONTROLLER_H_
 
 #define MAX_PWM_VALUE 65535
 
@@ -26,22 +26,7 @@ struct MotorSetpoint : Message {
 	vector<float> CurrentLocation;
 };
 
-class MotorSetpointObserver : public Observer<MotorSetpoint> {
-	public:
-		MotorSetpointObserver() : Observer() {
-
-		}
-
-		~MotorSetpointObserver() {
-
-		}
-
-		void Respond(MotorSetpoint *setpoint) {
-			Callback(setpoint);
-		}
-};
-
-namespace Osprai {
+namespace OsprAi {
 
 	class PIDController {
 	private:
@@ -64,7 +49,7 @@ namespace Osprai {
 		}
 	};
 
-	class MotorsController {
+	class ActuatorController : public ScheduledModule {
 		private:
 		protected:
 			std::map<TIM_HandleTypeDef *, std::vector<unsigned int>> motorSources;
@@ -74,15 +59,17 @@ namespace Osprai {
 			queue<MotorSetpoint> SetpointsBuffer;
 			int BufferSize;
 			bool HaveReachSetpoint= true;
+			int ArrValue;
+
 		public:
-			MotorsController() {
+			ActuatorController(int freq) : ScheduledModule(freq) {
 			}
 
-			MotorsController(int bufferSize) {
+			ActuatorController(int freq, int bufferSize) : ScheduledModule(freq) {
 				BufferSize = bufferSize;
 			}
 
-			virtual ~MotorsController(){
+			virtual ~ActuatorController(){
 
 			}
 
@@ -94,6 +81,7 @@ namespace Osprai {
 					nMotors += timer.second.size();
 					for (int i= 0; i < timer.second.size(); i++) {
 						status= HAL_TIM_PWM_Start(timer.first, timer.second[i]);
+						ArrValue = timer.first->Instance->ARR;
 						if (status != HAL_OK) {
 							return status;
 						}
@@ -112,24 +100,31 @@ namespace Osprai {
 				SetpointsBuffer.push(*setpoint);
 			}
 
+			void ExecMainTask() {
+				uint32_t test= HAL_GetTick();
+				if (HAL_GetTick() - StartTime >= 1000 / Freq) {
+					StartTime = HAL_GetTick();
+					UpdateMotorsCommand();
+				}
+			}
+
 			virtual void UpdateMotorsCommand()= 0;
 	};
 
-	class ServosController : public MotorsController {
+	class ServosController : public ActuatorController {
 		private:
 			int Accel;
-			int MinDutyCyleValue;
-			int MaxDutyCyleValue;
+			float MinDutyCylePercent;
+			float MaxDutyCylePercent;
 			float MaxAngle;
 			int CurrentDCValue;
 		public:
-			ServosController(int accel=1, int minDutyCyleValue= 250, int maxDutyCycleValue= 1250, float maxAngle= 270, int bufferSize = 50) : MotorsController(bufferSize) {
+			ServosController(int accel=1, float minDutyCylePercent= 0.025, float maxDutyCylePercent= 0.125, float maxAngle= 270, int bufferSize = 50) : ActuatorController(50, bufferSize) {
 				Accel = accel;
-				MinDutyCyleValue= minDutyCyleValue;
-				MaxDutyCyleValue = maxDutyCycleValue;
+				MinDutyCylePercent= minDutyCylePercent;
+				MaxDutyCylePercent = maxDutyCylePercent;
 				if (maxAngle > M_PI)
 					MaxAngle= Deg2Rad(maxAngle, false);
-				CurrentDCValue= minDutyCyleValue;
 			}
 
 			~ServosController() { }
@@ -138,8 +133,8 @@ namespace Osprai {
 				float targetAngle= CurrentSetpoint.AngleSetpoint;
 				if (CurrentSetpoint.AngleSetpoint < 0)
 					targetAngle += 3.14;
-				int rangeDC= (MaxDutyCyleValue - MinDutyCyleValue) * (M_PI / MaxAngle);
-				int targetDCValue = MinDutyCyleValue + (targetAngle / M_PI)*rangeDC;
+				int rangeDC= ((int)(ArrValue*MaxDutyCylePercent) - (int)(ArrValue*MinDutyCylePercent)) * (M_PI / MaxAngle);
+				int targetDCValue = (int)(ArrValue*MinDutyCylePercent) + (targetAngle / M_PI)*rangeDC;
 				//If too close to target value => current value = target value
 				if (abs(CurrentDCValue - targetDCValue) <= Accel) {
 					CurrentDCValue = targetDCValue;
@@ -156,15 +151,29 @@ namespace Osprai {
 
 				if (HaveReachSetpoint && SetpointsBuffer.size() > 0) {
 					HaveReachSetpoint = false;
-					CurrentSetpoint = SetpointsBuffer.back();
+					CurrentSetpoint = SetpointsBuffer.front();
 					SetpointsBuffer.pop();
 				}
-				for(const auto & source : this->motorSources)
-					source.first->Instance->CCR1= CurrentDCValue;
+				for(const auto & source : this->motorSources) {
+					for(int i= 0; i < source.second.size(); i++) {
+						if (source.second[i] == TIM_CHANNEL_1) {
+							source.first->Instance->CCR1= CurrentDCValue;
+						}
+						if (source.second[i] == TIM_CHANNEL_2) {
+							source.first->Instance->CCR2= CurrentDCValue;
+						}
+						if (source.second[i] == TIM_CHANNEL_3) {
+							source.first->Instance->CCR3= CurrentDCValue;
+						}
+						if (source.second[i] == TIM_CHANNEL_4) {
+							source.first->Instance->CCR4= CurrentDCValue;
+						}
+					}
+				}
 			}
 	};
 
 
 } /* namespace Osprai */
 
-#endif /* INC_MOTORSCONTROLLER_H_ */
+#endif /* INC_ACTUATORCONTROLLER_H_ */

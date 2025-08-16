@@ -8,6 +8,7 @@
 #ifndef INC_EVENTMANAGEMENT_H_
 #define INC_EVENTMANAGEMENT_H_
 
+#include "main.h"
 #include <vector>
 #include <functional>
 
@@ -64,12 +65,15 @@ class ScheduledModule {
 	private:
 
 	protected:
-		Event<void> CallNextModuleEvent;
-		std::shared_ptr<Observer<void>> ExecTaskObserver;
+		Event<uint32_t> CallNextModuleEvent;
+		std::shared_ptr<Observer<uint32_t>> ExecTaskObserver;
+		int Freq;
+		uint32_t StartTime;
 
 	public:
-		ScheduledModule() {
-			ExecTaskObserver = std::make_shared<Observer<void>>();
+		ScheduledModule(int freq) {
+			Freq= freq;
+			ExecTaskObserver = std::make_shared<Observer<uint32_t>>();
 			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::ExecMainTask, this));
 
 		}

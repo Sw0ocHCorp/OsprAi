@@ -10,7 +10,7 @@
 
 #include "utils.h"
 
-namespace Osprai {
+namespace OsprAi {
 	class FrameParser {
 		private:
 			string Sof;
@@ -23,7 +23,7 @@ namespace Osprai {
 				ParsingIds = parsingIds;
 			}
 
-			map<string, vector<float>> parseFrame(string frame) {
+			map<string, vector<float>> ParseFrame(string frame) {
 				int currentStep = SOF;
 				map<string, vector<float>> parsedData;
 				string buffer;
@@ -98,18 +98,20 @@ namespace Osprai {
 				return parsedData;
 			}
 
-			string encodeFrame(map<string, vector<float>> data) {
+			string EncodeFrame(map<string, vector<float>> data) {
 				string encodedFrame = Sof + "00";
+				uint8_t *test= (uint8_t *)encodedFrame.data();
 				unsigned char checksum = 0;
-				for (int i= 0; i < (int)Sof.size(); i += 2) {
+				/*for (int i= 0; i < (int)Sof.size(); i += 2) {
 					checksum += stoi(Sof.substr(i, 2), nullptr, 16);
-				}
+				}*/
 				for (const auto& [id, values] : data) {
 					for (int i= 0; i < (int)id.size(); i += 2) {
 						checksum += stoi(id.substr(i, 2), nullptr, 16);
 					}
 					encodedFrame += id;
 					encodedFrame += uCharToHexString(values.size() * sizeof(float));
+					test= (uint8_t *)encodedFrame.data();
 					checksum += values.size() * sizeof(float);
 					for (const float& value : values) {
 						string hexValue = floatToHexString(value);

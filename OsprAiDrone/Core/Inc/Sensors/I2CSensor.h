@@ -10,6 +10,7 @@
 
 #include "main.h"
 #include "utils.h"
+#include "EventManagement.h"
 
 namespace OsprAi {
 	class I2CSensor : public ScheduledModule {
@@ -23,7 +24,7 @@ namespace OsprAi {
 			bool IsRoutineFinished= false;
 
 		public:
-			I2CSensor(vector<int> sensorAddresses, int samplesPerMes) {
+			I2CSensor(int freq, vector<int> sensorAddresses, int samplesPerMes) :ScheduledModule(freq) {
 				SamplesPerMes= samplesPerMes;
 				SensorAddresses = sensorAddresses;
 				for (int i= 0; i < 3; i++) {

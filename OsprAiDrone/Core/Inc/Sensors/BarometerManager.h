@@ -1,3 +1,6 @@
+#ifndef SRC_BAROMETERMANAGER_H_
+#define SRC_BAROMETERMANAGER_H_
+
 #define BARO1_SLAVE_ADDR 0x76 << 1
 #define BARO2_SLAVE_ADDR 0x77 << 1
 #define BARO_TIMER_DELAY	5
@@ -60,7 +63,7 @@ namespace OsprAi {
 	public:
 		int32_t cpt;
 
-		BarometerManager(vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(sensorAddresses, samplesPerMes) {
+		BarometerManager(int taskFreq, vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(taskFreq, sensorAddresses, samplesPerMes) {
 			// TODO Auto-generated constructor stub
 			for(int i= 0; i < 2; i++) {
 				MeasurementsData.push_back({});
@@ -142,10 +145,14 @@ namespace OsprAi {
 		}
 
 		void ExecMainTask() {
-			if (MeasurementCalled == false)
-				LaunchMeasurementRoutine();
-			else
-				CheckIfDataAvailable();
+			if (HAL_GetTick() - StartTime >= 1000 / Freq) {
+				StartTime = HAL_GetTick();
+				if (MeasurementCalled == false)
+					LaunchMeasurementRoutine();
+				else
+					CheckIfDataAvailable();
+				CallNextModuleEvent.Trigger(nullptr);
+			}
 		}
 
 		void LaunchMeasurementRoutine() {
@@ -187,9 +194,10 @@ namespace OsprAi {
 			}
 			MeasurementCalled= false;
 			DevStatus= 0;
-			CallNextModuleEvent.Trigger(nullptr);
 			return true;
 		}
 	};
 
 } /* namespace Osprai */
+
+#endif
