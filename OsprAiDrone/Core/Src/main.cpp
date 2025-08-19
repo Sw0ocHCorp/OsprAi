@@ -60,19 +60,9 @@ TIM_HandleTypeDef htim8;
 UART_HandleTypeDef huart5;
 
 /* USER CODE BEGIN PV */
-ServosController servos;
-FlightController fc(100);
-ImuManager imu(100, {MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 3);
+ImuManager imu(100, StaticVector<uint8_t, 10> {MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 3);
 BarometerManager barom(100, {BARO1_SLAVE_ADDR}, 1);
 FrameParser *parser;
-int cpt1= 12;
-int cpt2= 0;
-int cpt3 = 0;
-int cpt4= 3;
-int cpt5= 0;
-int cpt6= 0;
-int timerDelay;
-uint32_t startTime;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -128,28 +118,13 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
-  parser = new FrameParser("abcd", {{"000a", "arming"}, {"000b", "sticks"}, {"000c", "tLinSpeed"},
-  	  	  	  	  	  	  	  	  	  {"000d", "tThetha"}, {"000e", "tServos"}});
-
+  imu.SetFirstInSchedule();
   imu.SetI2CInterface(&hi2c1);
   barom.SetI2CInterface(&hi2c1);
-  fc.SetBus(&huart5);
-  fc.SetParser(*parser);
-  servos.InitController({{&htim2, {TIM_CHANNEL_1, TIM_CHANNEL_2}}}, false);
-  MotorSetpoint setpoint1;
-  setpoint1.AngleSetpoint = Deg2Rad(270.0, false);
-  setpoint1.IsLLSetpoint= true;
-  MotorSetpoint setpoint2;
-  setpoint2.AngleSetpoint= 0;
-  setpoint2.IsLLSetpoint = true;
-  servos.OnSetpointReceived(&setpoint1);
-  servos.OnSetpointReceived(&setpoint2);
   HAL_StatusTypeDef status= imu.SensorConfiguration();
   status= barom.SensorConfiguration();
-  //gps.UpdateData(true);
   imu.SetNextModule(&barom);
-  barom.SetNextModule(&servos);
-  startTime = HAL_GetTick();
+
   HAL_TIM_Base_Start_IT(&htim8);
   /* USER CODE END 2 */
 
@@ -628,8 +603,6 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	HAL_GPIO_WritePin(GPIOA, UART_Process_Tracker_Pin|LD2_Pin, GPIO_PIN_SET);
-	int a= 1;
 	//gps.TakeMeasurement();
 
 }

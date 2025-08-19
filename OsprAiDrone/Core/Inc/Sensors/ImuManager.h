@@ -42,8 +42,7 @@ namespace OsprAi {
 	//Bit 3 -> 1: Disable Temperature Sensor
 	//Bit 2/1/0 -> 111: Stop clock, timing gen in reset | 110 and 000: Internal 20MHz Clock
 	//				001 -> 101: Auto select best clock freq
-
-class ImuManager : public I2CSensor {
+class ImuManager : public I2CSensor<3> {
 private:
 	float AccelRange;
 	float GyroRange;
@@ -86,7 +85,7 @@ private:
 public:
 	int32_t cpt;
 
-	ImuManager(int taskFreq, vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(taskFreq, sensorAddresses, samplesPerMes) {
+	ImuManager(int taskFreq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) : I2CSensor<3>(taskFreq, sensorAddresses, samplesPerMes) {
 		// TODO Auto-generated constructor stub
 
 	}
@@ -97,13 +96,12 @@ public:
 
 	HAL_StatusTypeDef SensorConfiguration() {
 		HAL_StatusTypeDef status= HAL_ERROR;
-		for (int i= 0; i < (int)SensorAddresses.size(); i++) {
+		for (int i= 0; i < (int)this->SensorAddresses.GetSize(); i++) {
 			uint8_t configVal;
 			uint8_t address;
-			status= HAL_I2C_Mem_Read(I2cInterface, SensorAddresses.at(i), 0x75, 1, &address, 1, 1);
-			status= HAL_I2C_IsDeviceReady(I2cInterface, SensorAddresses.at(i), 5, 1000);
+			status= HAL_I2C_Mem_Read(this->I2cInterface, this->SensorAddresses[i], 0x75, 1, &address, 1, 1);
+			status= HAL_I2C_IsDeviceReady(this->I2cInterface, this->SensorAddresses[i], 5, 1000);
 			if (status != HAL_ERROR) {
-
 				configVal= 0b00011000;
 				if (configVal == 0b00000000)
 					this->GyroRange = 250;
@@ -113,7 +111,7 @@ public:
 					this->GyroRange = 1000;
 				else if (configVal == 0b00011000)
 					this->GyroRange= 2000;
-				status = HAL_I2C_Mem_Write(I2cInterface, SensorAddresses.at(i), 0x1B, 1, &configVal, 1, 1);
+				status = HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0x1B, 1, &configVal, 1, 1);
 				if (status == HAL_ERROR)
 					return status;
 
@@ -126,12 +124,12 @@ public:
 					this->AccelRange = 16;
 				else if (configVal == 0b00011000)
 					this->AccelRange= 32;
-				status = HAL_I2C_Mem_Write(I2cInterface, SensorAddresses.at(i), 0x1C, 1, &configVal, 1, 1);
+				status = HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0x1C, 1, &configVal, 1, 1);
 				if (status == HAL_ERROR)
 					return status;
 
 				configVal= 0b00000000;
-				status = HAL_I2C_Mem_Write(I2cInterface, SensorAddresses.at(i), 0x6B, 1, &configVal, 1, 1);
+				status = HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0x6B, 1, &configVal, 1, 1);
 				if (status == HAL_ERROR)
 					return status;
 			}
@@ -140,99 +138,95 @@ public:
 	}
 
 	void ExecMainTask() {
-		if (HAL_GetTick() - StartTime >= 1000 / Freq) {
-			StartTime = HAL_GetTick();
-			AskForMeasurement();
-		}
+		AskForMeasurement();
 	}
 
 	void AskForMeasurement() {
-		if (SamplesTaken < SamplesPerMes && (SamplesTaken > 0 || SensorIndex > 0)) {
-			if (IsMeasureAccel) {
-				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-					float *t= MeasurementsData[i].data();
-					LinAccelVect[i] = Median(MeasurementsData[i]);
-					MeasurementsData[i].clear();
+		if (this->SamplesTaken < this->SamplesPerMes && (this->SamplesTaken > 0 || this->SensorIndex > 0)) {
+			if (this->IsMeasureAccel) {
+				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+					LinAccelVect[i] = Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+					this->MeasurementsData[i].Clear();
 				}
 			} else {
-				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-					RotAccelVect[i] = Median(MeasurementsData[i]);
-					MeasurementsData[i].clear();
+				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+					this->RotAccelVect[i] =  Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+					this->MeasurementsData[i].Clear();
 				}
 			}
 		}
-		SamplesTaken = 0;
-		IsMeasureAccel = true;
-		IsRoutineFinished= false;
-		SensorIndex= 0;
-		if (MeasurementsData[0].size() != 0) {
-			for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-				MeasurementsData[i].clear();
+		this->SamplesTaken = 0;
+		this->IsMeasureAccel = true;
+		this->IsRoutineFinished= false;
+		this->SensorIndex= 0;
+		if (this->MeasurementsData[0].GetSize() != 0) {
+			for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+				this->MeasurementsData[i].Clear();
 			}
 		}
-		HAL_StatusTypeDef status= HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x3B, 1, RawData, 6);
-		int a= 12;
+		HAL_I2C_Mem_Read_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0x3B, 1, this->RawData, 6);
+
 	}
 
 	bool ProcessMeasurement(uint8_t sensorAddress, uint8_t memAddress) {
 		//ELSE IF the Routine is not finished we need to get more measures
-		if(IsRoutineFinished == false) {
-			SamplesTaken++;
+		if(this->IsRoutineFinished == false) {
+			this->SamplesTaken++;
 			//Compute the Accel Vector from this received sample
-			if (IsMeasureAccel) {
+			if (this->IsMeasureAccel) {
 				float accelData[3];
-				ProcessAccelData(RawData, accelData);
-				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-					MeasurementsData[i].push_back(accelData[i]);
+				ProcessAccelData(this->RawData, accelData);
+				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+					this->MeasurementsData[i].Add(accelData[i]);
 				}
 			}
 			//Compute the Gyro Vector from this received sample
 			else {
 				float gyroData[3];
-				ProcessGyroData(RawData, gyroData);
-				for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-					MeasurementsData[i].push_back(gyroData[i]);
+				ProcessGyroData(this->RawData, gyroData);
+				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+					this->MeasurementsData[i].Add(gyroData[i]);
 				}
 			}
 
 			// IF we have taken enough measures with the current Sensor => Change the sensor address used for the next measures or go to other type of measure
-			if (SamplesTaken >= SamplesPerMes) {
-				SamplesTaken = 0;
-				SensorIndex++;
+			if (this->SamplesTaken >= this->SamplesPerMes) {
+				this->SamplesTaken = 0;
+				this->SensorIndex++;
 				//If we have taken enough measures with ALL the Sensors => Go to other type of measures
-				if (SensorIndex >= SensorAddresses.size()) {
-					SensorIndex = 0;
+				if (this->SensorIndex >= this->SensorAddresses.GetSize()) {
+					this->SensorIndex = 0;
 					//Compute the real Accel Vector because we have all the data needed to do it(Data from N samples)
 					// => Go to Gyro Measurement
-					if (IsMeasureAccel) {
-						for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-							LinAccelVect[i] = Median(MeasurementsData[i]);
-							MeasurementsData[i].clear();
+					if (this->IsMeasureAccel) {
+						for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+							this->LinAccelVect[i] = Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+							this->MeasurementsData[i].Clear();
 						}
 					}
 					//Compute the Gyro Vector because we have all the data needed to do it(Data from N samples)
 					//  => End the measurement routine
 					else {
-						IsRoutineFinished= true;
-						for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-							RotAccelVect[i] = Median(MeasurementsData[i]);
-							MeasurementsData[i].clear();
+						this->IsRoutineFinished= true;
+						for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+							this->RotAccelVect[i] = Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+							this->MeasurementsData[i].Clear();
 						}
 					}
-					IsMeasureAccel = !IsMeasureAccel;
+					this->IsMeasureAccel = !this->IsMeasureAccel;
 				}
 			}
-			if (IsRoutineFinished == false) {
-				if (IsMeasureAccel) {
-					HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x3B, 1, RawData, 6);
+			if (this->IsRoutineFinished == false) {
+				if (this->IsMeasureAccel) {
+					HAL_I2C_Mem_Read_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0x3B, 1, this->RawData, 6);
 				} else {
-					HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0x43, 1, RawData, 6);
+					HAL_I2C_Mem_Read_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0x43, 1, this->RawData, 6);
 				}
 			} else {
-				CallNextModuleEvent.Trigger(nullptr);
+				this->CallNextModuleEvent.Trigger(nullptr);
 			}
 		}
-		return IsRoutineFinished;
+		return this->IsRoutineFinished;
 	}
 };
 

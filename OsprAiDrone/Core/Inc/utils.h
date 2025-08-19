@@ -23,6 +23,77 @@
 
 using namespace std;
 
+template<typename T, unsigned int MS>
+class StaticVector  {
+	private:
+		T Data[MS];
+		unsigned int MaxSize= MS;
+		unsigned int Size= 0;
+	public:
+		StaticVector() {
+
+		}
+
+		StaticVector(std::initializer_list<T> init) {
+			if ((unsigned int)init.size() <= MaxSize) {
+				copy(init.begin(), init.end(), Data);
+				Size= init.size();
+			}
+		}
+		void Add(T data) {
+			if (Size < MaxSize) {
+				Data[Size]= data;
+				Size++;
+			} else {
+				throw std::out_of_range("Size");
+			}
+		}
+
+		void Add(T *data, unsigned int n) {
+			if (Size + (n-1) < MaxSize) {
+				for (int i= 0; i < (int)n; i++) {
+					Data[Size]= data[i];
+					Size++;
+				}
+			} else {
+				throw std::out_of_range("Size");
+			}
+		}
+
+		bool Remove(T data) {
+			int index= -1;
+			for (int i= 0; i < Size; i++) {
+				if (Data[i] == data) {
+					index = i;
+					break;
+				}
+			}
+			if (index >= 0) {
+				Size--;
+				for (int i= index +1; index <= Size; i++) {
+					Data[i-1]= Data[i];
+				}
+				return true;
+			}
+			return false;
+		}
+		void Clear() {
+			Size= 0;
+		}
+		T& operator[](int index) {
+			return Data[index];
+		}
+		const T *GetData() {
+			return Data;
+		}
+		int GetSize() const {
+			return Size;
+		}
+		int GetMaxSize() {
+			return MaxSize;
+		}
+};
+
 bool Equal(vector<uint8_t> target, vector<uint8_t> pattern) {
 	if (target.size() < pattern.size()) {
 		return false;
@@ -158,6 +229,17 @@ char intToAsciiChar(int value) {
 
 float Median(vector<float> vec) {
 	int n= vec.size();
+	sort(vec.begin(), vec.end());
+	if (n %2 != 0) {
+		return vec[n/2];
+	}
+	else {
+		return (vec[n/2] + vec[(n-1)/2]) / 2;
+	}
+}
+
+float Median(float *data, int n) {
+	vector<float> vec(data, data+n);
 	sort(vec.begin(), vec.end());
 	if (n %2 != 0) {
 		return vec[n/2];

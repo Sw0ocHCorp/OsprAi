@@ -63,7 +63,7 @@ class Event {
 
 class ScheduledModule {
 	private:
-
+		bool IsFirst= false;
 	protected:
 		Event<uint32_t> CallNextModuleEvent;
 		std::shared_ptr<Observer<uint32_t>> ExecTaskObserver;
@@ -74,13 +74,23 @@ class ScheduledModule {
 		ScheduledModule(int freq) {
 			Freq= freq;
 			ExecTaskObserver = std::make_shared<Observer<uint32_t>>();
-			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::ExecMainTask, this));
+			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::StartMainTask, this));
 
 		}
 
+		void SetFirstInSchedule() {
+			IsFirst= true;
+		}
 
 		void SetNextModule(ScheduledModule *nextModule) {
 			CallNextModuleEvent.AddObserver(nextModule->ExecTaskObserver);
+		}
+
+		void StartMainTask() {
+			if (IsFirst || HAL_GetTick() - StartTime >= 1000 / Freq) {
+				StartTime = HAL_GetTick();
+				ExecMainTask();
+			}
 		}
 
 		virtual void ExecMainTask()= 0;

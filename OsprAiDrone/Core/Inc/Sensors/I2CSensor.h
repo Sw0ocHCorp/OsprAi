@@ -13,22 +13,23 @@
 #include "EventManagement.h"
 
 namespace OsprAi {
+template <unsigned int NDataType>
 	class I2CSensor : public ScheduledModule {
 		protected:
 			I2C_HandleTypeDef *I2cInterface;
-			vector<int> SensorAddresses;
-			vector<vector<float>> MeasurementsData;
+			StaticVector<uint8_t, 10> SensorAddresses;
+			StaticVector<StaticVector<float, 20>, NDataType> MeasurementsData;
 			int SamplesPerMes;
 			int SamplesTaken;
 			int SensorIndex;
 			bool IsRoutineFinished= false;
 
 		public:
-			I2CSensor(int freq, vector<int> sensorAddresses, int samplesPerMes) :ScheduledModule(freq) {
-				SamplesPerMes= samplesPerMes;
+			I2CSensor(int freq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) :ScheduledModule(freq) {
 				SensorAddresses = sensorAddresses;
-				for (int i= 0; i < 3; i++) {
-					MeasurementsData.push_back({});
+				SamplesPerMes= samplesPerMes;
+				for (int i= 0; i < MeasurementsData.GetMaxSize(); i++) {
+					MeasurementsData.Add(StaticVector<float, 20>{});
 				}
 			}
 

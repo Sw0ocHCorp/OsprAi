@@ -11,7 +11,7 @@
 namespace OsprAi {
 	//WARNING:
 	//	For BME280, Calibration data are Little Endian, it means LSB first
-	class BarometerManager : public I2CSensor {
+	class BarometerManager : public I2CSensor<2> {
 	private:
 		float Pressure;
 		float Temperature;
@@ -61,13 +61,8 @@ namespace OsprAi {
 		}
 
 	public:
-		int32_t cpt;
-
-		BarometerManager(int taskFreq, vector<int> sensorAddresses, int samplesPerMes) : I2CSensor(taskFreq, sensorAddresses, samplesPerMes) {
+		BarometerManager(int taskFreq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) : I2CSensor<2>(taskFreq, sensorAddresses, samplesPerMes) {
 			// TODO Auto-generated constructor stub
-			for(int i= 0; i < 2; i++) {
-				MeasurementsData.push_back({});
-			}
 		}
 
 		virtual ~BarometerManager() {
@@ -76,32 +71,32 @@ namespace OsprAi {
 
 		HAL_StatusTypeDef SensorConfiguration() {
 			HAL_StatusTypeDef status= HAL_ERROR;
-			for (int i= 0; i < (int)SensorAddresses.size(); i++) {
+			for (int i= 0; i < this->SensorAddresses.GetSize(); i++) {
 				//Get Sensor ID:
 				//	0x56-0x58 => BMP 280
 				//	0x60 => BME 280
 				//	0x61 => BME 680
 				uint8_t sensorId;
-				status= HAL_I2C_Mem_Read(I2cInterface, SensorAddresses[i], 0xD0, 1, &sensorId, 1, 1);
+				status= HAL_I2C_Mem_Read(this->I2cInterface, this->SensorAddresses[i], 0xD0, 1, &sensorId, 1, 1);
 				//IF the Mem_Read is succesfull(data available and sensor connected) AND sensor ID is different that 0xFF (means if a Sensor is detected)
 				if (status == HAL_OK && sensorId != 0xFF) {
 					//Execute Soft RESET
 					uint8_t resetReg= 0xB6;
-					status= HAL_I2C_Mem_Write(I2cInterface, SensorAddresses[i], 0xE0, 1, &resetReg, 1, 1);
+					status= HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0xE0, 1, &resetReg, 1, 1);
 					//Check If Calibration data is available (Sensor finished collect calibration data)
 					uint8_t devStatus;
-					status= HAL_I2C_Mem_Read(I2cInterface, SensorAddresses[i], 0xF3, 1, &devStatus, 1, 1);
+					status= HAL_I2C_Mem_Read(this->I2cInterface, this->SensorAddresses[i], 0xF3, 1, &devStatus, 1, 1);
 					//IF not, loop to wait for those data
 					while (status == HAL_OK && devStatus >> 4 == 1) {
 						HAL_Delay(1);
-						status= HAL_I2C_Mem_Read(I2cInterface, SensorAddresses[i], 0xF3, 1, &devStatus, 1, 1);
+						status= HAL_I2C_Mem_Read(this->I2cInterface, this->SensorAddresses[i], 0xF3, 1, &devStatus, 1, 1);
 					}
 					HAL_Delay(10);
 					//Save Calibration Data
 					int j= 0;
 					for (uint8_t configReg= 0x88; configReg <= 0x9E; configReg += 0x02) {
 						uint8_t calibrationData[2];
-						status = HAL_I2C_Mem_Read(I2cInterface, SensorAddresses[i], configReg, 1,calibrationData, 2, 1);
+						status = HAL_I2C_Mem_Read(this->I2cInterface, this->SensorAddresses[i], configReg, 1,calibrationData, 2, 1);
 						if (configReg == 0x88) {
 							T1ConfigData = (int16_t)((unsigned)calibrationData[1] << 8 | (unsigned)calibrationData[0] << 0);
 							j= 0;
@@ -118,16 +113,16 @@ namespace OsprAi {
 					}
 					//Set Sensor in SLEEP MODE to configure sampling
 					uint8_t mode= 0x00;
-					status= HAL_I2C_Mem_Write(I2cInterface, SensorAddresses[i], 0xF4, 1, &mode, 1, 1);
+					status= HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0xF4, 1, &mode, 1, 1);
 					if (status == HAL_OK) {
 						//Set Temperature Oversampling(*2) & Presure Oversampling(*8) & mode(FORCED= 11)
 						//	=> Target use case is (Indoor) Navigation (We need fast & synchronizable measurements)
-						status= HAL_I2C_Mem_Write(I2cInterface, SensorAddresses[i], 0xF4, 1, &ModeValue, 1, 1);
+						status= HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0xF4, 1, &ModeValue, 1, 1);
 						//Set Sensor Hardware config
 						//	Standby Time(time between 2 Measurements)= 10ms (Not important when use Sensor in FORCED MODE)
 						// 	IIR Filter(Reduce Noise)= 16
-						uint8_t configValue = /*0x06 << 5 |*/ 7 << 2;
-						status= HAL_I2C_Mem_Write(I2cInterface, SensorAddresses[i], 0xF5, 1, &configValue, 1, 1);
+						uint8_t configValue =  7 << 2;
+						status= HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[i], 0xF5, 1, &configValue, 1, 1);
 
 					}
 				}
@@ -136,64 +131,61 @@ namespace OsprAi {
 		}
 
 		bool IsDataAvailable() {
-			if ((DevStatus & 1) == 0 && (DevStatus & 8) == 0) {
+			/*if ((DevStatus & 1) == 0 && (DevStatus & 8) == 0) {
 				return true;
 			}
 			else {
 				return false;
-			}
+			}*/
 		}
 
 		void ExecMainTask() {
-			if (HAL_GetTick() - StartTime >= 1000 / Freq) {
-				StartTime = HAL_GetTick();
-				if (MeasurementCalled == false)
-					LaunchMeasurementRoutine();
-				else
-					CheckIfDataAvailable();
-				CallNextModuleEvent.Trigger(nullptr);
-			}
+			if (this->MeasurementCalled == false)
+				LaunchMeasurementRoutine();
+			else
+				CheckIfDataAvailable();
+			this->CallNextModuleEvent.Trigger(nullptr);
 		}
 
 		void LaunchMeasurementRoutine() {
-			if (MeasurementCalled == false) {
-				MeasurementCalled= true;
+			if (this->MeasurementCalled == false) {
+				this->MeasurementCalled= true;
 			}
-			HAL_I2C_Mem_Write(I2cInterface, SensorAddresses[SensorIndex], 0xF4, 1, &ModeValue, 1, 1);
+			HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0xF4, 1, &this->ModeValue, 1, 1);
 		}
 
 		void CheckIfDataAvailable() {
-			HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0xF3, 1, &DevStatus, 1);
+			HAL_I2C_Mem_Read_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0xF3, 1, &this->DevStatus, 1);
 		}
 
 		void AskForMeasurement() {
-			HAL_I2C_Mem_Read_IT(I2cInterface, SensorAddresses[SensorIndex], 0xF7, 1, RawData, 6);
+			HAL_I2C_Mem_Read_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0xF7, 1, this->RawData, 6);
 		}
 
 		bool ProcessMeasurement(uint8_t devAddr, uint8_t regReaded) {
-			SamplesTaken++;
+			this->SamplesTaken++;
 			//Calibration data are Little Endian, it means LSB first
-			int32_t rawPres = (RawData[0] << 16) | (RawData[1] << 8) | (RawData[2] << 0);
-			int32_t rawTemp = (RawData[3] << 16) | (RawData[4] << 8) | (RawData[5] << 0);
+			int32_t rawPres = (this->RawData[0] << 16) | (this->RawData[1] << 8) | (this->RawData[2] << 0);
+			int32_t rawTemp = (this->RawData[3] << 16) | (this->RawData[4] << 8) | (this->RawData[5] << 0);
 			int32_t tFine;
 			float temp= ProcessTemperature(rawTemp, &tFine);
 			float pres= ProcessPressure(rawPres, tFine) / 100.0;
-			MeasurementsData[0].push_back(temp);
-			MeasurementsData[1].push_back(pres);
-			if (SamplesTaken >= SamplesPerMes) {
-				SamplesTaken= 0;
-				SensorIndex++;
-				if (SensorIndex >= (int)SensorAddresses.size()) {
-					SensorIndex= 0;
-					Temperature= Median(MeasurementsData[0]);
-					Pressure= Median(MeasurementsData[1]);
-					for (int i = 0; i < (int)MeasurementsData.size(); i++) {
-						MeasurementsData[i].clear();
+			this->MeasurementsData[0].Add(temp);
+			this->MeasurementsData[1].Add(pres);
+			if (this->SamplesTaken >= this->SamplesPerMes) {
+				this->SamplesTaken= 0;
+				this->SensorIndex++;
+				if (this->SensorIndex >= (int)this->SensorAddresses.GetSize()) {
+					this->SensorIndex= 0;
+					this->Temperature= Median((float *)this->MeasurementsData[0].GetData(), this->MeasurementsData[0].GetSize());
+					this->Pressure= Median((float *)this->MeasurementsData[0].GetData(), this->MeasurementsData[0].GetSize());
+					for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+						this->MeasurementsData[i].Clear();
 					}
 				}
 			}
-			MeasurementCalled= false;
-			DevStatus= 0;
+			this->MeasurementCalled= false;
+			this->DevStatus= 0;
 			return true;
 		}
 	};
