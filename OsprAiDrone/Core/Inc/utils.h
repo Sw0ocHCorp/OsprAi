@@ -213,7 +213,7 @@ string floatToHexString(float value) {
     unsigned int hexValue;
     memcpy(&hexValue, &value, sizeof(value));
     stringstream ss;
-    ss << hex << hexValue;
+    ss << hex << setw(2*sizeof(float)) << setfill('0') << hexValue;
     return ss.str();
 }
 

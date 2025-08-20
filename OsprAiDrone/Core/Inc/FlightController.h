@@ -71,21 +71,20 @@ namespace OsprAi {
 			}
 
 			void ExecMainTask() {
-				if (HAL_GetTick() - StartTime > 1000 / Freq) {
-					string frame= Parser.EncodeFrame({{"000F", {CurrentState.LinearVelocity[0], CurrentState.LinearVelocity[1], CurrentState.LinearVelocity[2]}},
-																{"0010", {CurrentState.AngularVelocity[0], CurrentState.AngularVelocity[1], CurrentState.AngularVelocity[2]}},
-																{"0011", {CurrentState.Altitude}},
-																{"0012", {CurrentState.Theta}}});
-					frame.push_back('\n');
-					HAL_StatusTypeDef status= HAL_UART_Transmit_IT(Bus, (uint8_t *)frame.data(), frame.size());
-					int a= 1;
-				}
+				HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
+				StaticVector<char, 100> frame= Parser.EncodeFrame(StaticVector<StaticVector<char, 10>, 10> { StaticVector<char, 10> {'0','0','0','F'}, StaticVector<char, 10>{'0','0','1','0'},
+																												StaticVector<char, 10>{'0','0','1','1'}, StaticVector<char, 10>{'0','0','1','2'}
+																											},
+																	StaticVector<StaticVector<float,10>, 10> { StaticVector<float, 10> {CurrentState.LinearVelocity[0], CurrentState.LinearVelocity[1], CurrentState.LinearVelocity[2]},
+																													StaticVector<float, 10> {CurrentState.AngularVelocity[0], CurrentState.AngularVelocity[1], CurrentState.AngularVelocity[2]},
+																													StaticVector<float, 10> {CurrentState.Altitude}, StaticVector<float, 10> {CurrentState.Theta}
+																											});
+
+				HAL_StatusTypeDef status= HAL_UART_Transmit_IT(Bus, (uint8_t *)frame.GetData(), frame.GetSize());
 			}
 
 			void ListeningForFrame() {
-				//Blocking Way=
-				//	Data reception -> Incoming data processing
-				map<string, vector<float>> data;
+				/*map<string, vector<float>> data;
 				HAL_UART_Receive_IT(Bus, &this->IncomingByte, 1);
 					if (this->IncomingByte != '\n')
 					Frame.push_back(this->IncomingByte);
@@ -98,7 +97,7 @@ namespace OsprAi {
 						//MotorSetpointReceivedEvent.Trigger(&setpoint);
 					}
 					Frame.clear();
-				}
+				}*/
 			}
 	};
 }

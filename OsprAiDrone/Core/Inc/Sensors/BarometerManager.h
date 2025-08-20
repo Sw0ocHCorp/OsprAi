@@ -61,7 +61,7 @@ namespace OsprAi {
 		}
 
 	public:
-		BarometerManager(int taskFreq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) : I2CSensor<2>(taskFreq, sensorAddresses, samplesPerMes) {
+		BarometerManager(int taskFreq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) : I2CSensor<2>(taskFreq*2, sensorAddresses, samplesPerMes) {
 			// TODO Auto-generated constructor stub
 		}
 
@@ -131,20 +131,20 @@ namespace OsprAi {
 		}
 
 		bool IsDataAvailable() {
-			/*if ((DevStatus & 1) == 0 && (DevStatus & 8) == 0) {
+			if ((DevStatus & 1) == 0) {
 				return true;
 			}
 			else {
 				return false;
-			}*/
+			}
 		}
 
 		void ExecMainTask() {
 			if (this->MeasurementCalled == false)
 				LaunchMeasurementRoutine();
 			else
-				CheckIfDataAvailable();
-			this->CallNextModuleEvent.Trigger(nullptr);
+				AskForMeasurement();
+
 		}
 
 		void LaunchMeasurementRoutine() {

@@ -17,7 +17,6 @@
   */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
-
 #include "main.h"
 
 /* Private includes ----------------------------------------------------------*/
@@ -62,6 +61,7 @@ UART_HandleTypeDef huart5;
 /* USER CODE BEGIN PV */
 ImuManager imu(100, StaticVector<uint8_t, 10> {MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 3);
 BarometerManager barom(100, {BARO1_SLAVE_ADDR}, 1);
+FlightController fc(50);
 FrameParser *parser;
 /* USER CODE END PV */
 
@@ -95,8 +95,7 @@ int main(void)
   /* MCU Configuration--------------------------------------------------------*/
 
   /* Reset of all peripherals, Initializes the Flash interface and the Systick. */
-
-	HAL_Init();
+  HAL_Init();
 
   /* USER CODE BEGIN Init */
 
@@ -118,13 +117,21 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM1_Init();
   /* USER CODE BEGIN 2 */
+  parser= new FrameParser(StaticVector<char, 10>{'a','b','c','d'}, StaticVector<StaticVector<char, 10>, 10> {StaticVector<char, 10>{'0','0','0','a'}, StaticVector<char, 10>{'0','0','0','b'},
+	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  StaticVector<char, 10>{'0','0','0','c'}, StaticVector<char, 10>{'0','0','0','d'},
+																											  StaticVector<char, 10>{'0','0','0','e'}},
+																	StaticVector<StaticVector<char, 10>, 10> {StaticVector<char, 10>{'a','r','m','i', 'n', 'g'}, StaticVector<char, 10>{'s','t','i','c','k','s'},
+																												  StaticVector<char, 10>{'t','L','i','n','S','p','e','e','d'}, StaticVector<char, 10>{'t','T','h','e','t','a'},
+																												  StaticVector<char, 10>{'t','S','e','r','v','o','s'}});
   imu.SetFirstInSchedule();
   imu.SetI2CInterface(&hi2c1);
   barom.SetI2CInterface(&hi2c1);
+  fc.SetBus(&huart5);
+  fc.SetParser(*parser);
   HAL_StatusTypeDef status= imu.SensorConfiguration();
   status= barom.SensorConfiguration();
   imu.SetNextModule(&barom);
-
+  barom.SetNextModule(&fc);
   HAL_TIM_Base_Start_IT(&htim8);
   /* USER CODE END 2 */
 
@@ -502,7 +509,7 @@ static void MX_UART5_Init(void)
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
+  huart5.Init.BaudRate = 921600;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
@@ -510,8 +517,7 @@ static void MX_UART5_Init(void)
   huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart5.Init.OverSampling = UART_OVERSAMPLING_16;
   huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT;
-  huart5.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
+  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
   if (HAL_UART_Init(&huart5) != HAL_OK)
   {
     Error_Handler();
@@ -557,19 +563,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : UART_Process_Tracker_Pin */
-  GPIO_InitStruct.Pin = UART_Process_Tracker_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(UART_Process_Tracker_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : LD2_Pin */
-  GPIO_InitStruct.Pin = LD2_Pin;
+  /*Configure GPIO pins : UART_Process_Tracker_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = UART_Process_Tracker_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
   /*Configure GPIO pins : PC10 PC11 */
   GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
@@ -591,7 +590,7 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim == &htim8) {
-		imu.ExecMainTask();
+		barom.ExecMainTask();
 	}
 }
 
@@ -603,6 +602,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
+	HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
+	fc.CallNextModule();
 	//gps.TakeMeasurement();
 
 }
@@ -611,16 +612,14 @@ void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
 	if (hi2c == &hi2c1) {
 		if (hi2c->Devaddress == 0xEC) {
-			if (barom.IsDataAvailable()) {
-				if (hi2c->Instance->TXDR == 0xF3) {
-					barom.AskForMeasurement();
-				} else {
-					barom.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
-				}
+			if (hi2c->Instance->TXDR == 0xF7) {
+				barom.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
 			}
+			barom.CallNextModule();
 		}
-		else
+		else {
 			imu.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
+		}
 	}
 }
 

@@ -13,12 +13,98 @@
 namespace OsprAi {
 	class FrameParser {
 		private:
-			string Sof;
-			map<string, string> ParsingIds;
+			StaticVector<char, 10> Sof;
+			StaticVector<StaticVector<char, 10>, 10> ParsingIds;
+			StaticVector<StaticVector<char, 10>, 10> ParsingLabels;
+			/*string Sof;
+			map<string, string> ParsingIds;*/
 		public:
 			FrameParser() {}
 
-			FrameParser(string sof, map<string, string> parsingIds) {
+			FrameParser(StaticVector<char, 10> sof,
+							StaticVector<StaticVector<char, 10>, 10> parsingIds,
+							StaticVector<StaticVector<char, 10>, 10> parsingLabels) {
+				Sof= sof;
+				ParsingIds= parsingIds;
+				ParsingLabels= parsingLabels;
+			}
+
+			StaticVector<char, 100> EncodeFrame(StaticVector<StaticVector<char, 10>, 10>encodingIds, StaticVector<StaticVector<float, 10>, 10>data) {
+				StaticVector<char, 100> frame;
+				uint8_t checksum= 0;
+				//Add SOF to frame & compute SOF checksum
+				frame.Add((char *)Sof.GetData(), Sof.GetSize());
+				for (int i= 0; i < (int)Sof.GetSize(); i+=2) {
+					string byte;
+					byte += Sof[i];
+					byte += Sof[i+1];
+					checksum += stoi(byte.c_str(), nullptr, 16);
+				}
+				//Set a byte to O to fill it with frame size at the end of the encoding
+				frame.Add('0');
+				frame.Add('0');
+				//Process all data to encode
+				for (int i= 0; i < encodingIds.GetSize(); i++) {
+					//Add Data ID to frame and compute his checksum
+					frame.Add((char *)encodingIds[i].GetData(), encodingIds[i].GetSize());
+					string byte;
+					for (int j= 0; j < encodingIds[i].GetSize(); j++) {
+						byte += encodingIds[i][j];
+						byte += encodingIds[i][j+1];
+						checksum += stoi(byte.c_str(), nullptr, 16);
+					}
+					//Add data size to frame & compute his checksum
+					frame.Add((char *)(uCharToHexString(data[i].GetSize() * sizeof(float)).c_str()), 2);
+					checksum += data[i].GetSize()  * sizeof(float);
+					//Add data to frame & compute his checksum
+					for(int j= 0; j < data[i].GetSize(); j++) {
+						string floatStr= floatToHexString(data[i][j]);
+						frame.Add((char *)(floatStr.c_str()), floatStr.size());
+						for (int k= 0; k < (int)floatStr.size(); k+=2) {
+							checksum += stoi(floatStr.substr(k, 2), nullptr, 16);
+						}
+					}
+				}
+
+
+				return frame;
+			}
+
+			/*
+			string EncodeFrame(map<string, vector<float>> data) {
+				string encodedFrame = Sof + "00";
+				uint8_t *test= (uint8_t *)encodedFrame.data();
+				unsigned char checksum = 0;*/
+				/*for (int i= 0; i < (int)Sof.size(); i += 2) {
+					checksum += stoi(Sof.substr(i, 2), nullptr, 16);
+				}*/
+				/*for (const auto& [id, values] : data) {
+					for (int i= 0; i < (int)id.size(); i += 2) {
+						checksum += stoi(id.substr(i, 2), nullptr, 16);
+					}
+					encodedFrame += id;
+					encodedFrame += uCharToHexString(values.size() * sizeof(float));
+					test= (uint8_t *)encodedFrame.data();
+					checksum += values.size() * sizeof(float);
+					for (const float& value : values) {
+						string hexValue = floatToHexString(value);
+						for (int i = 0; i < (int)hexValue.size(); i += 2) {
+							checksum += stoi(hexValue.substr(i, 2), nullptr, 16);
+						}
+						encodedFrame += hexValue;
+					}
+				}
+				int frameSize = (encodedFrame.size() / 2)+1;
+				checksum += (unsigned char)frameSize;
+				encodedFrame += uCharToHexString(checksum);
+				unsigned char msb= (unsigned char)frameSize >> 4;
+				unsigned char lsb = (unsigned char)frameSize & 0x0F;
+				encodedFrame[Sof.size()] = uCharToHexString(msb)[1];
+				encodedFrame[Sof.size() + 1] = uCharToHexString(lsb)[1];
+				return encodedFrame;
+			}*/
+
+			/*FrameParser(string sof, map<string, string> parsingIds) {
 				Sof = sof;
 				ParsingIds = parsingIds;
 			}
@@ -101,11 +187,11 @@ namespace OsprAi {
 			string EncodeFrame(map<string, vector<float>> data) {
 				string encodedFrame = Sof + "00";
 				uint8_t *test= (uint8_t *)encodedFrame.data();
-				unsigned char checksum = 0;
+				unsigned char checksum = 0;*/
 				/*for (int i= 0; i < (int)Sof.size(); i += 2) {
 					checksum += stoi(Sof.substr(i, 2), nullptr, 16);
 				}*/
-				for (const auto& [id, values] : data) {
+				/*for (const auto& [id, values] : data) {
 					for (int i= 0; i < (int)id.size(); i += 2) {
 						checksum += stoi(id.substr(i, 2), nullptr, 16);
 					}
@@ -129,7 +215,7 @@ namespace OsprAi {
 				encodedFrame[Sof.size()] = uCharToHexString(msb)[1];
 				encodedFrame[Sof.size() + 1] = uCharToHexString(lsb)[1];
 				return encodedFrame;
-			}
+			}*/
 	};
 }
 
