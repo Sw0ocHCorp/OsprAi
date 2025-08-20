@@ -8,6 +8,7 @@
 #ifndef INC_EVENTMANAGEMENT_H_
 #define INC_EVENTMANAGEMENT_H_
 
+#include "main.h"
 #include <vector>
 #include <functional>
 
@@ -25,7 +26,9 @@ class Observer {
 
 		virtual ~Observer() { }
 
-		virtual void Respond(T *data)= 0;
+		void Respond(T *data) {
+			Callback(data);
+		}
 
 		void setCallback(std::function<void(T *)> callback) {
 			Callback = callback;
@@ -56,6 +59,46 @@ class Event {
 				Observers.end()
 			);
 		}
+};
+
+class ScheduledModule {
+	private:
+		bool IsFirst= false;
+	protected:
+		Event<void> CallNextModuleEvent;
+		std::shared_ptr<Observer<void>> ExecTaskObserver;
+		int Freq;
+		uint32_t StartTime;
+
+	public:
+		ScheduledModule(int freq) {
+			Freq= freq;
+			ExecTaskObserver = std::make_shared<Observer<void>>();
+			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::StartMainTask, this));
+
+		}
+
+		void SetFirstInSchedule() {
+			IsFirst= true;
+		}
+
+		void CallNextModule() {
+			this->CallNextModuleEvent.Trigger(nullptr);
+		}
+
+		void SetNextModule(ScheduledModule *nextModule) {
+			CallNextModuleEvent.AddObserver(nextModule->ExecTaskObserver);
+		}
+
+		void StartMainTask() {
+			if (IsFirst || HAL_GetTick() - StartTime >= (1000 / Freq) - 1) {
+				StartTime = HAL_GetTick();
+				ExecMainTask();
+			}
+		}
+
+		virtual void ExecMainTask()= 0;
+
 };
 
 #endif /* INC_EVENTMANAGEMENT_H_ */
