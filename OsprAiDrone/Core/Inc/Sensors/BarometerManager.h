@@ -184,6 +184,8 @@ namespace OsprAi {
 					}
 				}
 			}
+			float data[2] {Pressure, Temperature};
+			DataStreamingEvent.Trigger(data);
 			this->MeasurementCalled= false;
 			this->DevStatus= 0;
 			return true;

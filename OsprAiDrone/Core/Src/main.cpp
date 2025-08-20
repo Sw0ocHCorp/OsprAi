@@ -132,6 +132,8 @@ int main(void)
   status= barom.SensorConfiguration();
   imu.SetNextModule(&barom);
   barom.SetNextModule(&fc);
+  imu.AttachDataObserver(fc.GetDataObserver(1));
+  barom.AttachDataObserver(fc.GetDataObserver(2));
   HAL_TIM_Base_Start_IT(&htim8);
   /* USER CODE END 2 */
 
@@ -590,7 +592,7 @@ static void MX_GPIO_Init(void)
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim == &htim8) {
-		barom.ExecMainTask();
+		imu.ExecMainTask();
 	}
 }
 
@@ -602,7 +604,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
+	//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
 	fc.CallNextModule();
 	//gps.TakeMeasurement();
 

@@ -23,6 +23,7 @@ template <unsigned int NDataType>
 			int SamplesTaken;
 			int SensorIndex;
 			bool IsRoutineFinished= false;
+			Event<float> DataStreamingEvent;
 
 		public:
 			I2CSensor(int freq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) :ScheduledModule(freq) {
@@ -38,6 +39,10 @@ template <unsigned int NDataType>
 
 			void SetI2CInterface(I2C_HandleTypeDef *i2cInterface) {
 				I2cInterface= i2cInterface;
+			}
+
+			void AttachDataObserver(shared_ptr<Observer<float>> obs) {
+				DataStreamingEvent.AddObserver(obs);
 			}
 
 			virtual void ExecMainTask()= 0;
