@@ -12,7 +12,7 @@
 #include "utils.h"
 
 namespace OsprAi {
-	class UARTSensor {
+	/*class UARTSensor {
 		protected:
 			UART_HandleTypeDef *UartInterface;
 		public:
@@ -29,7 +29,7 @@ namespace OsprAi {
 			}
 
 			virtual void TakeMeasurement() = 0;
-	};
+	};*/
 }
 
 

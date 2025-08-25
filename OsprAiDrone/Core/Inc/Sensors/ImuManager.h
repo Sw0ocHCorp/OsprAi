@@ -96,7 +96,7 @@ public:
 
 	HAL_StatusTypeDef SensorConfiguration() {
 		HAL_StatusTypeDef status= HAL_ERROR;
-		for (int i= 0; i < (int)this->SensorAddresses.GetSize(); i++) {
+		for (int i= 0; i < (int)this->SensorAddresses.size(); i++) {
 			uint8_t configVal;
 			uint8_t address;
 			status= HAL_I2C_Mem_Read(this->I2cInterface, this->SensorAddresses[i], 0x75, 1, &address, 1, 1);
@@ -144,13 +144,13 @@ public:
 	void AskForMeasurement() {
 		if (this->SamplesTaken < this->SamplesPerMes && (this->SamplesTaken > 0 || this->SensorIndex > 0)) {
 			if (this->IsMeasureAccel) {
-				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
-					LinAccelVect[i] = Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+				for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
+					LinAccelVect[i] = Median((float *)this->MeasurementsData[i].data(), this->MeasurementsData[i].size());
 					this->MeasurementsData[i].Clear();
 				}
 			} else {
-				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
-					this->RotAccelVect[i] =  Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+				for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
+					this->RotAccelVect[i] =  Median((float *)this->MeasurementsData[i].data(), this->MeasurementsData[i].size());
 					this->MeasurementsData[i].Clear();
 				}
 			}
@@ -159,8 +159,8 @@ public:
 		this->IsMeasureAccel = true;
 		this->IsRoutineFinished= false;
 		this->SensorIndex= 0;
-		if (this->MeasurementsData[0].GetSize() != 0) {
-			for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+		if (this->MeasurementsData[0].size() != 0) {
+			for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
 				this->MeasurementsData[i].Clear();
 			}
 		}
@@ -176,7 +176,7 @@ public:
 			if (this->IsMeasureAccel) {
 				float accelData[3];
 				ProcessAccelData(this->RawData, accelData);
-				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+				for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
 					this->MeasurementsData[i].Add(accelData[i]);
 				}
 			}
@@ -184,7 +184,7 @@ public:
 			else {
 				float gyroData[3];
 				ProcessGyroData(this->RawData, gyroData);
-				for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+				for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
 					this->MeasurementsData[i].Add(gyroData[i]);
 				}
 			}
@@ -194,13 +194,13 @@ public:
 				this->SamplesTaken = 0;
 				this->SensorIndex++;
 				//If we have taken enough measures with ALL the Sensors => Go to other type of measures
-				if (this->SensorIndex >= this->SensorAddresses.GetSize()) {
+				if (this->SensorIndex >= this->SensorAddresses.size()) {
 					this->SensorIndex = 0;
 					//Compute the real Accel Vector because we have all the data needed to do it(Data from N samples)
 					// => Go to Gyro Measurement
 					if (this->IsMeasureAccel) {
-						for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
-							this->LinAccelVect[i] = Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+						for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
+							this->LinAccelVect[i] = Median((float *)this->MeasurementsData[i].data(), this->MeasurementsData[i].size());
 							this->MeasurementsData[i].Clear();
 						}
 					}
@@ -208,8 +208,8 @@ public:
 					//  => End the measurement routine
 					else {
 						this->IsRoutineFinished= true;
-						for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
-							this->RotAccelVect[i] = Median((float *)this->MeasurementsData[i].GetData(), this->MeasurementsData[i].GetSize());
+						for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
+							this->RotAccelVect[i] = Median((float *)this->MeasurementsData[i].data(), this->MeasurementsData[i].size());
 							this->MeasurementsData[i].Clear();
 						}
 					}

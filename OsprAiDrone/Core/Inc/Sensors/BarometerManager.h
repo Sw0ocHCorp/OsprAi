@@ -71,7 +71,7 @@ namespace OsprAi {
 
 		HAL_StatusTypeDef SensorConfiguration() {
 			HAL_StatusTypeDef status= HAL_ERROR;
-			for (int i= 0; i < this->SensorAddresses.GetSize(); i++) {
+			for (int i= 0; i < this->SensorAddresses.size(); i++) {
 				//Get Sensor ID:
 				//	0x56-0x58 => BMP 280
 				//	0x60 => BME 280
@@ -175,11 +175,11 @@ namespace OsprAi {
 			if (this->SamplesTaken >= this->SamplesPerMes) {
 				this->SamplesTaken= 0;
 				this->SensorIndex++;
-				if (this->SensorIndex >= (int)this->SensorAddresses.GetSize()) {
+				if (this->SensorIndex >= (int)this->SensorAddresses.size()) {
 					this->SensorIndex= 0;
-					this->Temperature= Median((float *)this->MeasurementsData[0].GetData(), this->MeasurementsData[0].GetSize());
-					this->Pressure= Median((float *)this->MeasurementsData[0].GetData(), this->MeasurementsData[0].GetSize());
-					for (int i = 0; i < (int)this->MeasurementsData.GetSize(); i++) {
+					this->Temperature= Median((float *)this->MeasurementsData[0].data(), this->MeasurementsData[0].size());
+					this->Pressure= Median((float *)this->MeasurementsData[0].data(), this->MeasurementsData[0].size());
+					for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
 						this->MeasurementsData[i].Clear();
 					}
 				}

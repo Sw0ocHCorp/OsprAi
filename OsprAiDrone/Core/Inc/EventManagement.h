@@ -46,6 +46,7 @@ class Event {
 		void Trigger(T *data) {
 			for (auto& observer : Observers) {
 				if (observer) observer->Respond(data);
+
 			}
 		}
 
