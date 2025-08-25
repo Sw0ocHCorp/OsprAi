@@ -13,6 +13,7 @@
 #include "EventManagement.h"
 #include "ActuatorController.h"
 
+#define MAX_FRAME_SIZE 300
 #define IMU_ID		1
 #define BAROM_ID	2
 
@@ -29,12 +30,13 @@ namespace OsprAi {
 		private:
 			uint8_t IncomingByte= '\n';
 			string Frame;
-			UART_HandleTypeDef *Bus;
+			SPI_HandleTypeDef *Bus;
 			FrameParser Parser;
 			Event<MotorSetpoint> MotorSetpointReceivedEvent;
 			std::shared_ptr<Observer<float>> ImuObserver;
 			std::shared_ptr<Observer<float>> BarObserver;
 			OsprAiState CurrentState;
+			StaticVector<uint8_t, 1000> CompanionFrame;
 
 
 		public:
@@ -50,7 +52,7 @@ namespace OsprAi {
 			}
 
 			void ImuDataReceived(float *imuData) {
-				HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
+				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
 				//HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
 				CurrentState.LinearVelocity[0]= imuData[0];
 				CurrentState.LinearVelocity[1]= imuData[1];
@@ -62,22 +64,26 @@ namespace OsprAi {
 			}
 
 			void AltitudeReceived(float *data) {
-				HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
+				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
 				//HAL_GPIO_TogglePin(GPIOA, LD2_Pin);
 				CurrentState.Altitude= data[0];
 			}
 
 			void ExecMainTask() {
-				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
-				StaticVector<char, 100> frame= Parser.EncodeFrame(StaticVector<StaticVector<char, 10>, 10> { StaticVector<char, 10> {'0','0','0','F'}, StaticVector<char, 10>{'0','0','1','0'},
-																												StaticVector<char, 10>{'0','0','1','1'}, StaticVector<char, 10>{'0','0','1','2'}
-																											},
-																	StaticVector<StaticVector<float,10>, 10> { StaticVector<float, 10> {CurrentState.LinearVelocity[0], CurrentState.LinearVelocity[1], CurrentState.LinearVelocity[2]},
-																													StaticVector<float, 10> {CurrentState.AngularVelocity[0], CurrentState.AngularVelocity[1], CurrentState.AngularVelocity[2]},
-																													StaticVector<float, 10> {CurrentState.Altitude}, StaticVector<float, 10> {CurrentState.Theta}
-																											});
+				StaticVector<uint8_t, 500> frame= Parser.EncodeFrame(StaticVector<StaticVector<uint8_t, 10>, 10> { StaticVector<uint8_t, 10> {0x00, 0x0F}, StaticVector<uint8_t, 10>{0x00, 0x10},
+																																StaticVector<uint8_t, 10>{0x00, 0x11}, StaticVector<uint8_t, 10>{0x00, 0x12}
+																															},
+																					StaticVector<StaticVector<float,10>, 10> { StaticVector<float, 10> {CurrentState.LinearVelocity[0], CurrentState.LinearVelocity[1], CurrentState.LinearVelocity[2]},
+																																	StaticVector<float, 10> {CurrentState.AngularVelocity[0], CurrentState.AngularVelocity[1], CurrentState.AngularVelocity[2]},
+																																	StaticVector<float, 10> {CurrentState.Altitude}, StaticVector<float, 10> {CurrentState.Theta}
+																															});
+				frame.Add('\n');
 
-				HAL_StatusTypeDef status= HAL_UART_Transmit_IT(Bus, (uint8_t *)frame.GetData(), frame.GetSize());
+				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
+				HAL_StatusTypeDef status= HAL_SPI_TransmitReceive_IT(Bus, (uint8_t *)frame.data(), CompanionFrame.mutData(), frame.GetMaxSize());
+				//HAL_StatusTypeDef status= HAL_SPI_Transmit_IT(Bus, (const uint8_t *)frame.GetData(), frame.GetSize());
+				//HAL_StatusTypeDef status= HAL_UART_Transmit_IT(Bus, (uint8_t *)frame.GetData(), frame.GetSize());
+
 			}
 
 			void ListeningForFrame() {
@@ -97,7 +103,12 @@ namespace OsprAi {
 				}*/
 			}
 
-			void SetBus(UART_HandleTypeDef *bus) {
+			void ProcessReceivedFrame() {
+				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
+				int a= 1;
+			}
+
+			void SetBus(SPI_HandleTypeDef *bus) {
 				Bus = bus;
 			}
 

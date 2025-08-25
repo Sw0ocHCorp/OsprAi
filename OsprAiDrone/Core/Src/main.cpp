@@ -50,13 +50,12 @@ using namespace OsprAi;
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
+
+SPI_HandleTypeDef hspi2;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim8;
-
-UART_HandleTypeDef huart5;
 
 /* USER CODE BEGIN PV */
 ImuManager imu(100, StaticVector<uint8_t, 10> {MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 3);
@@ -71,9 +70,8 @@ static void MX_GPIO_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_UART5_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_TIM1_Init(void);
+static void MX_SPI2_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
 
@@ -113,20 +111,19 @@ int main(void)
   MX_TIM2_Init();
   MX_TIM8_Init();
   MX_I2C1_Init();
-  MX_UART5_Init();
-  MX_I2C2_Init();
   MX_TIM1_Init();
+  MX_SPI2_Init();
   /* USER CODE BEGIN 2 */
-  parser= new FrameParser(StaticVector<char, 10>{'a','b','c','d'}, StaticVector<StaticVector<char, 10>, 10> {StaticVector<char, 10>{'0','0','0','a'}, StaticVector<char, 10>{'0','0','0','b'},
-	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  StaticVector<char, 10>{'0','0','0','c'}, StaticVector<char, 10>{'0','0','0','d'},
-																											  StaticVector<char, 10>{'0','0','0','e'}},
+  parser= new FrameParser(StaticVector<uint8_t, 10>{0xAB, 0xCD}, StaticVector<StaticVector<uint8_t, 10>, 10> {StaticVector<uint8_t, 10>{0x00, 0x0A}, StaticVector<uint8_t, 10>{0x00, 0x0B},
+	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  StaticVector<uint8_t, 10>{0x00, 0x0C}, StaticVector<uint8_t, 10>{0x00, 0x0D},
+																											  StaticVector<uint8_t, 10>{0x00, 0x0E}},
 																	StaticVector<StaticVector<char, 10>, 10> {StaticVector<char, 10>{'a','r','m','i', 'n', 'g'}, StaticVector<char, 10>{'s','t','i','c','k','s'},
 																												  StaticVector<char, 10>{'t','L','i','n','S','p','e','e','d'}, StaticVector<char, 10>{'t','T','h','e','t','a'},
 																												  StaticVector<char, 10>{'t','S','e','r','v','o','s'}});
-  imu.SetFirstInSchedule();
+  //imu.SetFirstInSchedule();
   imu.SetI2CInterface(&hi2c1);
   barom.SetI2CInterface(&hi2c1);
-  fc.SetBus(&huart5);
+  fc.SetBus(&hspi2);
   fc.SetParser(*parser);
   HAL_StatusTypeDef status= imu.SensorConfiguration();
   status= barom.SensorConfiguration();
@@ -139,6 +136,7 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+
   while (1)
   {
     /* USER CODE END WHILE */
@@ -250,54 +248,42 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief I2C2 Initialization Function
+  * @brief SPI2 Initialization Function
   * @param None
   * @retval None
   */
-static void MX_I2C2_Init(void)
+static void MX_SPI2_Init(void)
 {
 
-  /* USER CODE BEGIN I2C2_Init 0 */
+  /* USER CODE BEGIN SPI2_Init 0 */
 
-  /* USER CODE END I2C2_Init 0 */
+  /* USER CODE END SPI2_Init 0 */
 
-  /* USER CODE BEGIN I2C2_Init 1 */
+  /* USER CODE BEGIN SPI2_Init 1 */
 
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00300F33;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  /* USER CODE END SPI2_Init 1 */
+  /* SPI2 parameter configuration*/
+  hspi2.Instance = SPI2;
+  hspi2.Init.Mode = SPI_MODE_MASTER;
+  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
+  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
+  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
+  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
+  hspi2.Init.NSS = SPI_NSS_SOFT;
+  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
+  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
+  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
+  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
+  hspi2.Init.CRCPolynomial = 7;
+  hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
+  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
+  if (HAL_SPI_Init(&hspi2) != HAL_OK)
   {
     Error_Handler();
   }
+  /* USER CODE BEGIN SPI2_Init 2 */
 
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** I2C Fast mode Plus enable
-  */
-  HAL_I2CEx_EnableFastModePlus(I2C_FASTMODEPLUS_I2C2);
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
+  /* USER CODE END SPI2_Init 2 */
 
 }
 
@@ -496,41 +482,6 @@ static void MX_TIM8_Init(void)
 }
 
 /**
-  * @brief UART5 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_UART5_Init(void)
-{
-
-  /* USER CODE BEGIN UART5_Init 0 */
-
-  /* USER CODE END UART5_Init 0 */
-
-  /* USER CODE BEGIN UART5_Init 1 */
-
-  /* USER CODE END UART5_Init 1 */
-  huart5.Instance = UART5;
-  huart5.Init.BaudRate = 921600;
-  huart5.Init.WordLength = UART_WORDLENGTH_8B;
-  huart5.Init.StopBits = UART_STOPBITS_1;
-  huart5.Init.Parity = UART_PARITY_NONE;
-  huart5.Init.Mode = UART_MODE_TX_RX;
-  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
-  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
-  huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
-  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
-  if (HAL_UART_Init(&huart5) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN UART5_Init 2 */
-
-  /* USER CODE END UART5_Init 2 */
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -546,10 +497,12 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
-  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOA, UART_Process_Tracker_Pin|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : B1_Pin */
   GPIO_InitStruct.Pin = B1_Pin;
@@ -565,22 +518,30 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Alternate = GPIO_AF8_LPUART1;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : UART_Process_Tracker_Pin LD2_Pin */
-  GPIO_InitStruct.Pin = UART_Process_Tracker_Pin|LD2_Pin;
+  /*Configure GPIO pin : LD2_Pin */
+  GPIO_InitStruct.Pin = LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+  HAL_GPIO_Init(LD2_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PC10 PC11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_10|GPIO_PIN_11;
-  GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+  /*Configure GPIO pin : Debug_Pin */
+  GPIO_InitStruct.Pin = Debug_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
-  GPIO_InitStruct.Alternate = GPIO_AF7_USART3;
-  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(Debug_GPIO_Port, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : DM_Ready_IT_Pin */
+  GPIO_InitStruct.Pin = DM_Ready_IT_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(DM_Ready_IT_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
   HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
@@ -596,7 +557,30 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 	}
 }
 
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+	//fc.ExecMainTask();
+}
+
+void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
+{
+	int a= 1;
+    // RX Done .. Do Something ...
+}
+
+void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
+	fc.ProcessReceivedFrame();
+	//txData += 1;
+	/*HAL_Delay(1000);
+	HAL_StatusTypeDef status= HAL_SPI_TransmitReceive_IT(&hspi2, &txData, &rxData, 1);*/
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	int a= 1;
+}
+
+
+/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	//gps.TakeMeasurement();
 
@@ -608,7 +592,7 @@ void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 	fc.CallNextModule();
 	//gps.TakeMeasurement();
 
-}
+}*/
 
 void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
@@ -616,8 +600,11 @@ void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 		if (hi2c->Devaddress == 0xEC) {
 			if (hi2c->Instance->TXDR == 0xF7) {
 				barom.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
+				//HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
 			}
 			barom.CallNextModule();
+
+			//HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
 		}
 		else {
 			imu.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);

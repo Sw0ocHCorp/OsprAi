@@ -34,7 +34,7 @@ using namespace std;
 
 namespace OsprAi {
 
-class GpsManager : public UARTSensor {
+/*class GpsManager : public UARTSensor {
 private:
 	float Latitude;
 	float Longitude;
@@ -143,7 +143,7 @@ public:
 		}
 
 	}
-};
+};*/
 
 } /* namespace Osprai */
 

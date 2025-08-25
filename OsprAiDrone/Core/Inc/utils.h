@@ -49,7 +49,7 @@ class StaticVector  {
 			}
 		}
 
-		void Add(T *data, unsigned int n) {
+		void Add(const T *data, unsigned int n) {
 			if (Size + (n-1) < MaxSize) {
 				for (int i= 0; i < (int)n; i++) {
 					Data[Size]= data[i];
@@ -83,10 +83,16 @@ class StaticVector  {
 		T& operator[](int index) {
 			return Data[index];
 		}
-		const T *GetData() {
+
+		const T *data() {
 			return Data;
 		}
-		int GetSize() const {
+
+		T *mutData() {
+			return Data;
+		}
+
+		int size() const {
 			return Size;
 		}
 		int GetMaxSize() {
