@@ -15,7 +15,9 @@ template<typename T> class Observer {
             Callback = callback;
         }
 
-        virtual void onTriggerReceived(T eventData) = 0;
+        void respond(T data) {
+            Callback(data);
+        }
 };
 
 template<typename T> class Event { 
@@ -24,7 +26,7 @@ template<typename T> class Event {
     public:
         void trigger(T eventData) {
             for (Observer<T> *observer : observers) {
-                observer->onTriggerReceived(eventData);
+                observer->respond(eventData);
             }
         }
         void addObserver(Observer<T> *observer) {
@@ -35,14 +37,6 @@ template<typename T> class Event {
         }
         virtual ~Event() = default;
 
-};
-
-class FrameReceivedObserver : public Observer<string> {
-    public:
-        void onTriggerReceived(string eventData) override {
-            Callback(eventData);
-            // Handle the received frame data
-        }
 };
 
 #endif 

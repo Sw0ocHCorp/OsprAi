@@ -24,12 +24,20 @@ int main() {
         }
         cout << endl;
     }*/
-    FrameParser parser("abcd", {{"000a", "arming"}, {"000b", "sticks"}});
-    UDPInterface eth("192.168.1.221", 8080, "192.168.1.173", 8080, parser);
-    UARTInterface uart("/dev/ttyAMA0", 115200, parser);
-    FrameReceivedObserver ethObserver = FrameReceivedObserver();
-    ethObserver.setCallback(std::bind(&UARTInterface::sendFrame, &uart, std::placeholders::_1));
-    FrameReceivedObserver uartObserver = FrameReceivedObserver();
+    FrameParser rcParser(StaticVector<uint8_t, 10> {0xAB, 0xCD}, StaticVector<StaticVector<uint8_t, 10>, 10> { StaticVector<uint8_t, 10> {0x00, 0x0A}, StaticVector<uint8_t, 10> {0x00, 0x0B} },
+                                                                    StaticVector<StaticVector<char, 10>, 10> {StaticVector<char, 10> {'a','r','m','i','n','g'}, StaticVector<char, 10> {'s','t','i','c','k','s'}});
+
+    FrameParser fcParser(StaticVector<uint8_t, 10>{0xAB, 0xCD}, StaticVector<StaticVector<uint8_t, 10>, 10> {StaticVector<uint8_t, 10> {0x00, 0x0F}, StaticVector<uint8_t, 10>{0x00, 0x10},
+																												    StaticVector<uint8_t, 10>{0x00, 0x11}, StaticVector<uint8_t, 10>{0x00, 0x12}}, 
+                                                                StaticVector<StaticVector<char, 10>, 10> {StaticVector<char, 10> {'l','i','n','s','p','d'}, StaticVector<char, 10> {'r','o','t','s','p','d'},
+                                                                                                                    StaticVector<char, 10> {'a','l','t','i','t','d'}, StaticVector<char, 10> {'t','h','e','t','a'}});
+
+    UDPInterface eth("192.168.1.109", 8080, "192.168.1.235", 8080, rcParser);
+    UARTInterface uart((char *)"/dev/ttyAMA0", B2500000, fcParser);
+    Observer<StaticVector<uint8_t, 500>> ethObserver = Observer<StaticVector<uint8_t, 500>>();
+    ethObserver.setCallback(std::bind(&UARTInterface::sendRawFrame, &uart, std::placeholders::_1));
+    Observer<StaticVector<uint8_t, 500>> uartObserver = Observer<StaticVector<uint8_t, 500>>();
+    uartObserver.setCallback(std::bind(&UDPInterface::sendRawFrame, &eth, std::placeholders::_1));
     eth.addFrameReceivedObserver(&ethObserver);
     uart.addFrameReceivedObserver(&uartObserver);
     //Maintient en vie du Soft

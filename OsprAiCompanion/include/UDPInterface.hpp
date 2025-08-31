@@ -20,6 +20,16 @@ class UDPInterface : public ComInterface
         int Socket= -1;
         struct sockaddr_in Interface;
         struct sockaddr_in TargetInterface;
+
+    protected:
+
+        WorldMap dataFrameToWorldMap(StaticVector<StaticVector<float, 10>, 10> data) override {
+            WorldMap map;
+            
+            
+            return map;
+        }
+
     public:
         UDPInterface(string address, int port, string targetAddress, int targetPort, FrameParser parser) : ComInterface(parser) {
             Address = address;
@@ -33,42 +43,15 @@ class UDPInterface : public ComInterface
             this->startTask();
         }
 
-        void runTask() {
-            bool isConnected = false;
-            while(this->IsRunning) {
-                char buffer[1024];
-                if (!isConnected) {
-                    isConnected = connect();
-                    if (isConnected) {
-                        cout << "Connected to " << Address << ":" << Port << endl;
-                    }
-                }
-                else if (listenForIncomingFrame(buffer, sizeof(buffer))) {
-                    if (buffer[0] != '\0') {
-                        map<string, vector<float>> data= Parser.parseFrame(string(buffer)); 
-                        FrameReceivedEvent.trigger(string(buffer));
-                        cout << "Received frame: " << buffer << endl;
-                    }
-                    // Process the received frame as needed
-                } else {
-                    cout << "Failed to listen for incoming frame" << endl;
-                }
-            }
-        }
-
         void stopTask() override {
-            this->IsRunning = false;
-            thread &task= getTask();
-            if (task.joinable()) {
-                task.join();
-            }
+            ComInterface::stopTask();
             if (Socket >= 0) {
                 Socket = -1;
                 cout << "Stop Ethernet Task => Socket closed" << endl;
             }
         }
 
-        bool connect() {
+        bool connect() override {
             if (Socket < 0) {
                 Socket= socket(AF_INET, SOCK_DGRAM, 0);
                 if (Socket < 0) {
@@ -83,30 +66,30 @@ class UDPInterface : public ComInterface
                 return false;
             }
             cout << "Socket bind successfully" << endl;
+            cout << "Connected to " << Address << ":" << Port << endl;
             return true;
         }
 
-        bool sendFrame(string frame) {
+        bool sendRawFrame(StaticVector<uint8_t, 500> rawFrame) override {
             socklen_t sockLen= sizeof(TargetInterface);
-            int sentBytes = sendto(Socket, frame.c_str(), frame.size(), 0, (struct sockaddr *)&TargetInterface, sockLen);
+            int sentBytes = sendto(Socket, rawFrame.data(), rawFrame.size(), 0, (struct sockaddr *)&TargetInterface, sockLen);
             if (sentBytes < 0) {
-                cout << "Error sending frame" << endl;
+                cout << "Error sending raw frame" << endl;
                 return false;
             }
-            cout << "Frame sent successfully" << endl;
             return true;
         }
 
-        bool listenForIncomingFrame(char *buffer, int maxSize) {
+        StaticVector<uint8_t, 500> listenForIncomingFrame() override {
+            StaticVector<uint8_t, 500> frame;
             socklen_t sockLen= sizeof(TargetInterface);
-            int receivedBytes = recvfrom(Socket, buffer, maxSize, 0, (struct sockaddr *)&TargetInterface, &sockLen);
-            if (receivedBytes < 0) {
-                cout << "Error receiving frame" << endl;
-                return false;
+            uint8_t buffer[500];
+            int receivedBytes = recvfrom(Socket, buffer, 500, 0, (struct sockaddr *)&TargetInterface, &sockLen);
+            if (receivedBytes >= 0)  {
+                buffer[receivedBytes] = '\0'; // Null-terminate the received data
+                frame.Add(buffer, receivedBytes);
             }
-            buffer[receivedBytes] = '\0'; // Null-terminate the received data
-            //cout << "Frame received successfully from " << inet_ntoa(sourceAddress.sin_addr) << endl;
-            return true;
+            return frame;
         }
 
         string getAddress() const {

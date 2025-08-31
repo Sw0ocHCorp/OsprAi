@@ -1,6 +1,6 @@
 #ifndef FRAME_PARSER_HPP
 #define FRAME_PARSER_HPP
-#include <Utils.hpp>
+#include "Utils.hpp"
 
 #define SOF 0
 #define FRAME_SIZE 1
@@ -11,94 +11,113 @@
 
 class FrameParser {
     private:
-        string Sof;
-        int CurrentStep = SOF;
-        map<string, string> ParsingIds;
-    public:
-        FrameParser() {}
+		StaticVector<uint8_t, 10> Sof;
+		StaticVector<StaticVector<uint8_t, 10>, 10> ParsingIds;
+		StaticVector<StaticVector<char, 10>, 10> ParsingLabels;
+	public:
+		FrameParser() {}
 
-        FrameParser(string sof, map<string, string> parsingIds) {
-            Sof = sof;
-            ParsingIds = parsingIds;
+		FrameParser(StaticVector<uint8_t, 10> sof,
+						StaticVector<StaticVector<uint8_t, 10>, 10> parsingIds,
+						StaticVector<StaticVector<char, 10>, 10> parsingLabels) {
+			Sof= sof;
+			ParsingIds= parsingIds;
+			ParsingLabels= parsingLabels;
+		}
+
+        StaticVector<uint8_t, 10> getSOF() {
+            return Sof;
         }
 
-        map<string, vector<float>> parseFrame(string frame) {
-            CurrentStep = SOF;
-            map<string, vector<float>> parsedData;
-            string buffer;
-            string dataId;
-            int frameSize = 0;
-            int dataSize = 0;
-            unsigned char checksum = 0;
-            for (int i = 0; i < frame.length(); i += 2) {
-                frameSize--;
-                buffer += frame[i];
-                buffer += frame[i + 1];
-                if (CurrentStep >FRAME_SIZE && frameSize <= 0) 
-                    CurrentStep = CHECKSUM;
-                else 
-                    checksum += stoi(frame.substr(i, 2), nullptr, 16);
-                
-                switch (CurrentStep) {
-                    case SOF:
-                        if (buffer == Sof) {
-                            CurrentStep = FRAME_SIZE;
-                            buffer.clear();
+        StaticVector<StaticVector<char, 10>, 10> getLabels()  {
+            return ParsingLabels;
+        }
+
+        StaticVector<StaticVector<float, 10>, 10> parseFrame(StaticVector<uint8_t, 500> frame) {
+            StaticVector<StaticVector<float, 10>, 10> data;
+            int parsingStep= FRAME_SIZE;
+            uint8_t checksum= 0;
+            int startIndex= findPattern(frame.data(), frame.size(), Sof.data(), Sof.size());
+            if (startIndex >= 0) {
+                int remainBytes= -1;
+                int frameSize= 0;
+                int dataSize= -1;
+                int dataIdIndex=-1;
+                bool isValidData= false;
+                StaticVector<uint8_t, 100> buffer;
+                for(int i= 0; i < Sof.size(); i++) {
+                    checksum += Sof[i];
+                }
+                for (int i= startIndex+Sof.size(); i < frame.size(); i++) {
+                    buffer.Add(frame[i]);
+                    if (parsingStep != CHECKSUM)
+                        checksum += frame[i];
+                    if (parsingStep == FRAME_SIZE) {
+                        frameSize= frame[i];
+                        for(int j= 0; j < ParsingIds.size(); j++) {
+                            data.Add(StaticVector<float, 10>());
                         }
-                        break;
-                    case FRAME_SIZE:
-                        frameSize += stoi(buffer, nullptr, 16);
-                        CurrentStep = DATA_ID;
-                        buffer.clear();
-                        break;
-                    case DATA_ID:
-                        if (ParsingIds.find(buffer) != ParsingIds.end()) {
-                            parsedData[ParsingIds[buffer]] = vector<float>();
-                            dataId = ParsingIds[buffer];
-                            CurrentStep = DATA_SIZE;
-                            buffer.clear();
-                        }
-                        
-                        break;
-                    case DATA_SIZE:
-                        dataSize = stoi(buffer, nullptr, 16);
-                        CurrentStep = DATA;
-                        buffer.clear();
-                        break;
-                    case DATA:
-                        //Float Data => Measurements && Setpoints
-                        if ((buffer.size()/2) % 4 == 0 && dataSize % sizeof(float) == 0) {
-                            parsedData[dataId].push_back(hexStringToFloat(buffer));
-                            buffer.clear();
-                            if (parsedData[dataId].size() == dataSize / sizeof(float)) {
-                                CurrentStep = DATA_ID;
+                        remainBytes= frame[i]-Sof.size();
+                        buffer.Clear();
+                        parsingStep= DATA_ID;
+                    }
+                    else if (parsingStep == DATA_ID) {
+                        for (int j= 0; j < ParsingIds.size(); j++) {
+                            if (findPattern(buffer.data(), buffer.size(), ParsingIds[j].data(), ParsingIds[j].size()) >= 0) {
+                                dataIdIndex= j;
+                                buffer.Clear();
+                                parsingStep= DATA_SIZE;
+                                break;
                             }
                         }
-                        //Int Data => Enums && Int Setpoints
-                        else if ((buffer.size()/2) % 2 == 0 && dataSize % 2 == 0 && dataSize % sizeof(float) != 0) {
-                            parsedData[dataId].push_back(static_cast<float>(stoi(buffer, nullptr, 16)));
-                            buffer.clear();
-                            if (parsedData[dataId].size() == dataSize / 2) {
-                                CurrentStep = DATA_ID;
+                    } else if (parsingStep == DATA_SIZE) {
+                        dataSize= frame[i];
+                        parsingStep= DATA;
+                        buffer.Clear();
+                    } else if (parsingStep == DATA) {
+                        if (buffer.size() >= dataSize) {
+                            //IF it's a measurement
+                            if (dataSize >= sizeof(float)) {
+                                for (int j= 0; j < buffer.size(); j += sizeof(float)) {
+                                    vector<uint8_t> mesurement= buffer.SubVec(j, (int)(j+sizeof(float)));
+                                    float floatVal;
+                                    memcpy(&floatVal, mesurement.data(), sizeof(floatVal));
+                                    data[dataIdIndex].Add(floatVal);
+                                }
                             }
+                            //ELSE it's a qualitative value (like value to Arm / DisArm the motors)
+                            else {
+
+                            }
+                            if (remainBytes <=2)
+                                parsingStep= CHECKSUM;
+                            else
+                                parsingStep= DATA_ID;
+                            buffer.Clear();
+                            dataSize= -1;
+                            dataIdIndex= -1;
+                        }
+                    } else if (parsingStep == CHECKSUM) {
+                        if (checksum != frame[i]) {
+                            cout << "Received frame corrupted || Computed Checksum= " << (int)checksum << " Real Checksum= " << (int)frame[i] << endl;
+                            data.Clear();
                         }
                         break;
-                    case CHECKSUM:
-                        if (stoi(buffer, nullptr, 16) == checksum) {
-                            return parsedData;
-                        } else {
-                            cout << "Checksum error: expected " << static_cast<int>(checksum) 
-                                 << ", got " << stoi(buffer, nullptr, 16) << endl;
-                        }
-                        break; 
+                    }
+                    remainBytes--;
                 }
             }
-            parsedData.clear();
-            return parsedData;
+            if (parsingStep != CHECKSUM) {
+                cout << "Received frame incomplete" << endl;
+                data.Clear();
+            }
+            return data;
         }
 
-        string encodeFrame(map<string, vector<float>> data) {
-            string encodedFrame = Sof + "00";
+        StaticVector<uint8_t, 500> encodeFrame(map<StaticVector<char, 10>, StaticVector<float, 10>> data) {
+            StaticVector<uint8_t, 500> frame;
+            int a= 1;
+            /*string encodedFrame = Sof + "00";
             unsigned char checksum = 0;
             for (int i= 0; i < Sof.size(); i += 2) {
                 checksum += stoi(Sof.substr(i, 2), nullptr, 16);
@@ -125,7 +144,8 @@ class FrameParser {
             unsigned char lsb = (unsigned char)frameSize & 0x0F;
             encodedFrame[Sof.size()] = uCharToHexString(msb)[1];
             encodedFrame[Sof.size() + 1] = uCharToHexString(lsb)[1];
-            return encodedFrame;
+            return encodedFrame;*/
+            return frame;
         }
 };
 

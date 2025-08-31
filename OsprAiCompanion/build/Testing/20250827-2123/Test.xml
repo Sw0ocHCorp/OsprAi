@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Site BuildName="(empty)"
+	BuildStamp="20250827-2123-Experimental"
+	Name="(empty)"
+	Generator="ctest-3.25.1"
+	CompilerName=""
+	CompilerVersion=""
+	OSName="Linux"
+	Hostname="Sw0ocH"
+	OSRelease="6.12.25+rpt-rpi-2712"
+	OSVersion="#1 SMP PREEMPT Debian 1:6.12.25-1+rpt1 (2025-04-30)"
+	OSPlatform="aarch64"
+	Is64Bits="1"
+	VendorString=""
+	VendorID="Unknown Manufacturer"
+	FamilyID="8"
+	ModelID="0"
+	ProcessorCacheSize="0"
+	NumberOfLogicalCPU="4"
+	NumberOfPhysicalCPU="1"
+	TotalVirtualMemory="511"
+	TotalPhysicalMemory="8059"
+	LogicalProcessorsPerPhysical="4"
+	ProcessorClockFrequency="0"
+	>
+	<Testing>
+		<StartDateTime>Aug 27 23:23 CEST</StartDateTime>
+		<StartTestTime>1756329809</StartTestTime>
+		<TestList/>
+		<EndDateTime>Aug 27 23:23 CEST</EndDateTime>
+		<EndTestTime>1756329809</EndTestTime>
+		<ElapsedMinutes>0</ElapsedMinutes>
+	</Testing>
+</Site>
