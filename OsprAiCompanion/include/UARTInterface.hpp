@@ -66,17 +66,28 @@ class UARTInterface : public ComInterface
             gettimeofday(&start, NULL);
             gettimeofday(&end, NULL);
             double cumulTime= 0.0;
-            while (frame.size() < frame.GetMaxSize()) {
+            int frameSize= -1;
+            bool sofDetected= false;
+            while(true) {
                 gettimeofday(&start, NULL);
                 int nBytes= read(SerialPort, data, 1);
                 gettimeofday(&end, NULL);
                 if (nBytes > 0) {
                     cumulTime= 0.0;
                     frame.Add(data[0]);
+                    if (frame.size() > Parser.getSOF().size() && frameSize == -1) {
+                        int startIndex= findPattern(frame.data(), frame.size(), Parser.getSOF().data(), Parser.getSOF().size());
+                        if (startIndex >= 0 && startIndex + Parser.getSOF().size() < frame.size()) {
+                            frameSize= frame[startIndex + Parser.getSOF().size()];
+                            for (int i= 0; i < startIndex; i++) {
+                                frame.RemoveAt(0);
+                            }
+                        }
+                    }
                 } else {
                     cumulTime += (end.tv_usec - start.tv_usec);
                 }
-                if (cumulTime > 500.0 || (frame.size() >= 2 && frame[frame.size()-1] == '\n' && frame[frame.size()-2] == '\r'))
+                if ((frameSize == -1 && cumulTime > 100.0) || (frameSize >= 0 && frame.size() == frameSize))
                     break;
             }
             return frame;
@@ -86,22 +97,22 @@ class UARTInterface : public ComInterface
             WorldMap map;
             StaticVector<StaticVector<char, 10>, 10> labels= Parser.getLabels();
             for(int i= 0; i < labels.size(); i++) {
-                if (findPattern(labels[i].data(), labels[i].size(), "arm", 3)>= 0) 
+                if (findPattern(labels[i].data(), labels[i].size(), "arm", 3)>= 0 && data[i].size() > 0)
                     map.ArmingState= (uint8_t)data[i][0];
-                else if (findPattern(labels[i].data(), labels[i].size(), "lin", 3)>= 0) {
+                else if (findPattern(labels[i].data(), labels[i].size(), "lin", 3)>= 0 && data[i].size() >= 3) {
                     map.LinSpeed[0]= data[i][0];
                     map.LinSpeed[1]= data[i][1];
                     map.LinSpeed[2]= data[i][2];
                 }
-                else if (findPattern(labels[i].data(), labels[i].size(), "rot", 3)>= 0) {
+                else if (findPattern(labels[i].data(), labels[i].size(), "rot", 3)>= 0 && data[i].size() >= 3) {
                     map.RotSpeed[0]= data[i][0];
                     map.RotSpeed[1]= data[i][1];
                     map.RotSpeed[2]= data[i][2];
                 }
-                else if (findPattern(labels[i].data(), labels[i].size(), "alt", 3)>= 0) {
+                else if (findPattern(labels[i].data(), labels[i].size(), "alt", 3)>= 0 && data[i].size() > 0) {
                     map.Altitude= data[i][0];
                 }
-                else if (findPattern(labels[i].data(), labels[i].size(), "theta", 5)>= 0) {
+                else if (findPattern(labels[i].data(), labels[i].size(), "theta", 5)>= 0 && data[i].size() > 0) {
                     map.Theta= data[i][0];
                 }
             }

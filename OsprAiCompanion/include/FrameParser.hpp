@@ -49,6 +49,9 @@ class FrameParser {
                     checksum += Sof[i];
                 }
                 for (int i= startIndex+Sof.size(); i < frame.size(); i++) {
+                    if (buffer.size() +1 == buffer.GetMaxSize()) {
+                        break;
+                    }
                     buffer.Add(frame[i]);
                     if (parsingStep != CHECKSUM)
                         checksum += frame[i];
@@ -75,6 +78,9 @@ class FrameParser {
                         parsingStep= DATA;
                         buffer.Clear();
                     } else if (parsingStep == DATA) {
+                        if (data[dataIdIndex].size() > 3) {
+                            int a= 1;
+                        }
                         if (buffer.size() >= dataSize) {
                             //IF it's a measurement
                             if (dataSize >= sizeof(float)) {
@@ -100,6 +106,11 @@ class FrameParser {
                     } else if (parsingStep == CHECKSUM) {
                         if (checksum != frame[i]) {
                             cout << "Received frame corrupted || Computed Checksum= " << (int)checksum << " Real Checksum= " << (int)frame[i] << endl;
+                            uint8_t test= 0;
+                            for (int k= 0; k < frameSize; k++) {
+                                test += frame[startIndex + k];
+                                cout << "Byte " << k << " = " << (int)frame[startIndex + k] << " | Checksum= " << (int)test << endl;
+                            }
                             data.Clear();
                         }
                         break;
