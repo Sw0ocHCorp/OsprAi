@@ -112,14 +112,16 @@ class FrameParser {
                                 cout << "Byte " << k << " = " << (int)frame[startIndex + k] << " | Checksum= " << (int)test << endl;
                             }
                             data.Clear();
-                        }
+                        } /*else {
+                            cout << "Received frame valid || Checksum= " << (int)checksum << endl;
+                        }*/
                         break;
                     }
                     remainBytes--;
                 }
             }
             if (parsingStep != CHECKSUM) {
-                cout << "Received frame incomplete" << endl;
+                cout << "Received frame incomplete -> Frame size= " << frame.size() << endl;
                 data.Clear();
             }
             return data;

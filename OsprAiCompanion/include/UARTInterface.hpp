@@ -16,7 +16,7 @@ class UARTInterface : public ComInterface
         struct termios Tty;
 
     public:
-        UARTInterface(char *serialPath, long baudrate, FrameParser parser) : ComInterface(parser) {
+        UARTInterface(char *serialPath, long baudrate, FrameParser parser, int frequency= 50) : ComInterface(parser, frequency, 2) {
             PortPath = serialPath;
             BaudRate = baudrate;
             this->startTask();
@@ -51,7 +51,6 @@ class UARTInterface : public ComInterface
         bool sendRawFrame(StaticVector<uint8_t, 500> rawFrame) override {
             int nBytes= write(SerialPort, rawFrame.data(), rawFrame.size());
             if (nBytes > 0) {
-                cout << "Send " << nBytes << " bytes" << endl;
                 return true;
             }
             else
@@ -68,7 +67,7 @@ class UARTInterface : public ComInterface
             double cumulTime= 0.0;
             int frameSize= -1;
             bool sofDetected= false;
-            while(true) {
+            while(frame.size() < frame.GetMaxSize()) {
                 gettimeofday(&start, NULL);
                 int nBytes= read(SerialPort, data, 1);
                 gettimeofday(&end, NULL);
@@ -87,7 +86,7 @@ class UARTInterface : public ComInterface
                 } else {
                     cumulTime += (end.tv_usec - start.tv_usec);
                 }
-                if ((frameSize == -1 && cumulTime > 100.0) || (frameSize >= 0 && frame.size() == frameSize))
+                if ((frameSize == -1 && cumulTime > 500.0) || (frameSize >= 0 && frame.size() == frameSize))
                     break;
             }
             return frame;

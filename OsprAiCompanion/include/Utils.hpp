@@ -23,28 +23,42 @@ class CircularBuffer {
 		unsigned int MaxSize= MS;
 		unsigned int Head=0;
 		unsigned int Tail= MS;
+		unsigned int Size= 0;
 	public:
 		CircularBuffer() {
 
 		}
 
 		void enqueue(T data) {
-			if (Tail != Head) {
-				Data[Head]= data;
-				Head++;
-				if (Head >= MaxSize)
-					Head= 0;
-			} else {
-				throw out_of_range("Head");
+			if (Head + 1 == Tail)  {
+				dequeue();
 			}
+			Data[Head]= data;
+			Head++;
+			if (Head >= MaxSize)
+				Head= 0;
+			Size++;
+			if (Size > MaxSize)
+				Size= MaxSize;
 		}
 
 		T dequeue() {
-			if ((Tail +1) != Head) {
+			if (Tail != Head) {
 				Tail++;
+				if (Tail >= MaxSize)
+					Tail= 0;
+				Size--;
+				if (Size < 0)
+					Size= 0;
 				return Data[Tail];
-			} else 
-				throw out_of_range("Tail");
+			} 
+		}
+
+		int size() const {
+			return Size;
+		}
+		int GetMaxSize() const {
+			return MaxSize;
 		}
 
 };
@@ -237,28 +251,31 @@ int findPattern(const char *data, int dataSize, const char *pattern, int pattern
     return index;
 }
 
+//TO DO: Fix the Function
 int findPattern(const uint8_t *data, int dataSize, const uint8_t *pattern, int patternSize) {
     int index= -1;
+	int sameElements= 0;
 	//IF there is enough elements in data
     if (dataSize >= patternSize) {
-        for(int i= 0; i < dataSize; i++) {
+        for(int i= 0; i <= dataSize-patternSize; i++) {
 			//IF first element of the pattern found
             if (data[i] == pattern[0] && index == -1) {
                 index= i;
 				//Check if all elements of the pattern match the nexts data elements
 				for (int j= 0; j < patternSize; j++) {
+					if (data[i+j] == pattern[j]) {
+						sameElements++;
+					}
 					//IF not stop search, pattern not match
-					if (data[i+j] != pattern[j]) {
+					else {
 						index = -1;
+						sameElements= 0;
 						break;
 					}
 				}
-				// IF all elements matches FIRST pattern found
-				if (index >= 0)
-					break;
             } 
 			//IF pattern found, STOP search
-			if (index >= 0) 
+			if (sameElements == patternSize) 
 				break;
         }
     }

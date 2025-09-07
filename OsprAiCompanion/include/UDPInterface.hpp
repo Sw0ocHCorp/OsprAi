@@ -6,6 +6,7 @@
 #include <iostream>
 #include <arpa/inet.h>
 #include <thread>
+#include <fcntl.h>
 #include "ComInterface.hpp"
 
 using namespace std;
@@ -31,7 +32,7 @@ class UDPInterface : public ComInterface
         }
 
     public:
-        UDPInterface(string address, int port, string targetAddress, int targetPort, FrameParser parser) : ComInterface(parser) {
+        UDPInterface(string address, int port, string targetAddress, int targetPort, FrameParser parser, int frequency= 50) : ComInterface(parser, frequency, 1) {
             Address = address;
             Port = port;
             TargetAddress = targetAddress;
@@ -65,8 +66,18 @@ class UDPInterface : public ComInterface
             if (bind(Socket, (struct sockaddr *)&Interface, sizeof(Interface)) < 0) {
                 return false;
             }
+            int flags = fcntl(Socket, F_GETFL, 0);
+            if (flags < 0) {
+                cout << "Error setting socket to non-blocking mode 1/2" << endl;
+                return false;
+            }
+            if (fcntl(Socket, F_SETFL, flags | O_NONBLOCK) < 0) {
+                cout << "Error setting socket to non-blocking mode 2/2" << endl;
+                return false;
+            }
             cout << "Socket bind successfully" << endl;
             cout << "Connected to " << Address << ":" << Port << endl;
+
             return true;
         }
 
@@ -86,7 +97,6 @@ class UDPInterface : public ComInterface
             uint8_t buffer[500];
             int receivedBytes = recvfrom(Socket, buffer, 500, 0, (struct sockaddr *)&TargetInterface, &sockLen);
             if (receivedBytes >= 0)  {
-                buffer[receivedBytes] = '\0'; // Null-terminate the received data
                 frame.Add(buffer, receivedBytes);
             }
             return frame;

@@ -1,10 +1,12 @@
 #ifndef COM_INTERFACE_HPP
 #define COM_INTERFACE_HPP
 
-#include <chrono>
+#include <time.h>
+#include <stdio.h>
 #include <iostream>
 #include <arpa/inet.h>
 #include <thread>
+#include <pthread.h>
 #include "EventsManagement.hpp"
 #include "FrameParser.hpp"
 
@@ -16,29 +18,34 @@ class ComInterface
         thread Task;
         
     protected:
+        pthread_mutex_t Lock= PTHREAD_MUTEX_INITIALIZER;
         bool IsRunning = false;
         Event<WorldMap> DataReceivedEvent;
         Event<StaticVector<uint8_t, 500>> FrameReceivedEvent;
         FrameParser Parser;
-        CircularBuffer<StaticVector<uint8_t, 500>, 25> FrameBuffer;
+        StaticVector<uint8_t, 500> OutputFrame;
         Observer<StaticVector<uint8_t, 500>> FrameToSendObserver;
+        int Freq;
+        int ID;
+
 
         virtual WorldMap dataFrameToWorldMap(StaticVector<StaticVector<float, 10>, 10> data)= 0;
         
         void runTask()  {
             bool isConnected = false;
             double cumulTime= 0;
+            struct timespec start, end;
+            double elapsedTime;
             while(this->IsRunning) {
                 if (!isConnected) {
                     isConnected = connect();
                 }
                 else {
-                    /*struct timeval start;
-                    struct timeval end;
-                    gettimeofday(&start, NULL);*/
+                    clock_gettime(CLOCK_MONOTONIC, &start);
                     StaticVector<uint8_t, 500> frame= listenForIncomingFrame();
-                    /*gettimeofday(&end, NULL);
-                    double elapsedTime= end.tv_usec - start.tv_usec;*/
+                    clock_gettime(CLOCK_MONOTONIC, &end);
+                    elapsedTime+= (end.tv_sec - start.tv_sec) * 1000.0
+                                     + (end.tv_nsec - start.tv_nsec) / 1e6;      
                     if (frame.size() > 0){
                         //cout << "Frame size= " << frame.size() << " | Elapsed time= " << elapsedTime << " us" << endl;
                         StaticVector<StaticVector<float, 10>, 10> data= Parser.parseFrame(frame);
@@ -48,15 +55,24 @@ class ComInterface
                             DataReceivedEvent.trigger(wMap);
                         }
                     }
+                    if ((elapsedTime > (1000.0 / Freq) && OutputFrame.size() > 0)) {
+                        elapsedTime= 0.0;
+                        pthread_mutex_lock(&Lock);
+                        sendRawFrame(OutputFrame);
+                        pthread_mutex_unlock(&Lock);
+                    }
                 }
             }
         }
 
     public:
-        ComInterface(FrameParser parser) {
+        ComInterface(FrameParser parser, int frequency, int id) {
+            ID= id;
             Parser = parser;
             FrameToSendObserver.setCallback(std::bind(&ComInterface::sendRawFrame, this, std::placeholders::_1));
+            Freq= frequency;
         }
+
         ~ComInterface(){
             stopTask();
         }
@@ -80,7 +96,9 @@ class ComInterface
         virtual StaticVector<uint8_t, 500> listenForIncomingFrame()= 0;
 
         void enqueueNewFrame(StaticVector<uint8_t, 500> newFrame) {
-            FrameBuffer.enqueue(newFrame);
+            pthread_mutex_lock(&Lock);
+            OutputFrame= newFrame;
+            pthread_mutex_unlock(&Lock);
         }
 
         thread& getTask() {
