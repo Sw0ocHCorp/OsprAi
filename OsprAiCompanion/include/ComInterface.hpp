@@ -12,6 +12,9 @@
 
 using namespace std;
 
+#define RC_INTERFACE        1
+#define FC_INTERFACE        2
+
 class ComInterface
 {
     private:
@@ -44,8 +47,8 @@ class ComInterface
                     clock_gettime(CLOCK_MONOTONIC, &start);
                     StaticVector<uint8_t, 500> frame= listenForIncomingFrame();
                     clock_gettime(CLOCK_MONOTONIC, &end);
-                    elapsedTime+= (end.tv_sec - start.tv_sec) * 1000.0
-                                     + (end.tv_nsec - start.tv_nsec) / 1e6;      
+                    elapsedTime+= abs(end.tv_sec - start.tv_sec) * 1000.0
+                                     + abs(end.tv_nsec - start.tv_nsec) / 1e6;      
                     if (frame.size() > 0){
                         //cout << "Frame size= " << frame.size() << " | Elapsed time= " << elapsedTime << " us" << endl;
                         StaticVector<StaticVector<float, 10>, 10> data= Parser.parseFrame(frame);
@@ -53,13 +56,19 @@ class ComInterface
                             FrameReceivedEvent.trigger(frame);
                             WorldMap wMap= dataFrameToWorldMap(data);
                             DataReceivedEvent.trigger(wMap);
+                            if (OutputFrame.size() > 0 && ID == FC_INTERFACE) {
+                                pthread_mutex_lock(&Lock);
+                                sendRawFrame(OutputFrame);
+                                pthread_mutex_unlock(&Lock);
+                                elapsedTime= 0.0;
+                            }
                         }
                     }
-                    if ((elapsedTime > (1000.0 / Freq) && OutputFrame.size() > 0)) {
-                        elapsedTime= 0.0;
+                    if (elapsedTime > (1000.0 / Freq) && OutputFrame.size() > 0 && ID == RC_INTERFACE) {
                         pthread_mutex_lock(&Lock);
                         sendRawFrame(OutputFrame);
                         pthread_mutex_unlock(&Lock);
+                        elapsedTime= 0.0;
                     }
                 }
             }

@@ -32,7 +32,7 @@ class UDPInterface : public ComInterface
         }
 
     public:
-        UDPInterface(string address, int port, string targetAddress, int targetPort, FrameParser parser, int frequency= 50) : ComInterface(parser, frequency, 1) {
+        UDPInterface(string address, int port, string targetAddress, int targetPort, FrameParser parser, int frequency= 50) : ComInterface(parser, frequency, RC_INTERFACE) {
             Address = address;
             Port = port;
             TargetAddress = targetAddress;

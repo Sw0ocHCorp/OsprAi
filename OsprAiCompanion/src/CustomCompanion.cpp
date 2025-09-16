@@ -13,7 +13,7 @@ int main() {
                                                                                                                     StaticVector<char, 10> {'a','l','t','i','t','d'}, StaticVector<char, 10> {'t','h','e','t','a'}});
 
     UDPInterface eth("192.168.1.221", 8080, "192.168.1.173", 8080, rcParser);
-    UARTInterface uart((char *)"/dev/ttyAMA1", B2500000, fcParser);
+    UARTInterface uart((char *)"/dev/ttyAMA1", B921600, fcParser);
     Observer<StaticVector<uint8_t, 500>> ethObserver = Observer<StaticVector<uint8_t, 500>>();
     ethObserver.setCallback(std::bind(&UARTInterface::enqueueNewFrame, &uart, std::placeholders::_1));
     Observer<StaticVector<uint8_t, 500>> uartObserver = Observer<StaticVector<uint8_t, 500>>();

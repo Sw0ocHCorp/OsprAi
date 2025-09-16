@@ -16,7 +16,7 @@ class UARTInterface : public ComInterface
         struct termios Tty;
 
     public:
-        UARTInterface(char *serialPath, long baudrate, FrameParser parser, int frequency= 50) : ComInterface(parser, frequency, 2) {
+        UARTInterface(char *serialPath, long baudrate, FrameParser parser, int frequency= 50) : ComInterface(parser, frequency, FC_INTERFACE) {
             PortPath = serialPath;
             BaudRate = baudrate;
             this->startTask();
@@ -84,7 +84,7 @@ class UARTInterface : public ComInterface
                         }
                     }
                 } else {
-                    cumulTime += (end.tv_usec - start.tv_usec);
+                    cumulTime += abs(end.tv_usec - start.tv_usec);
                 }
                 if ((frameSize == -1 && cumulTime > 500.0) || (frameSize >= 0 && frame.size() == frameSize))
                     break;
