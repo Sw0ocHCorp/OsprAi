@@ -2,9 +2,12 @@ use std::collections::HashMap;
 
 use plotters::data;
 
-#[derive(Clone, Copy)]
+use crate::utils;
+
+static FLOAT_SIZE: usize = 4;
+
+#[derive(Clone, Copy, PartialEq)]
 enum ParsingStep {
-    Sof,
     FrameSize,
     DataId,
     DataSize,
@@ -14,136 +17,119 @@ enum ParsingStep {
 
 #[derive(Clone)]
 pub struct FrameParser {
-    sof: String,
-    parsing_ids: HashMap<String, String>
+    sof: Vec<u8>,
+    parsing_ids: HashMap<Vec<u8>, String>
 }
 
 impl FrameParser {
-    pub fn new(sof: String, parsing_ids:HashMap<String, String>) -> FrameParser {
+    pub fn new(sof: Vec<u8>, parsing_ids:HashMap<Vec<u8>, String>) -> FrameParser {
         FrameParser {
             sof,
             parsing_ids: parsing_ids,
         }
     }
 
-    pub fn parse_frame(&self, frame: String) -> HashMap<String, Vec<f32>> {
+    pub fn parse_frame(&self, mut frame: Vec<u8>) -> HashMap<String, Vec<f32>> {
         let mut parsed_data: HashMap<String, Vec<f32>> = HashMap::new();
-        let mut current_state= ParsingStep::Sof;
-        let mut buffer = String::new();
+        let mut current_state= ParsingStep::FrameSize;
+        let mut buffer = Vec::<u8>::new();
         let mut data_id = String::new();
         let mut frame_size= 0;
         let mut data_size = 0;
         let mut checksum: u8 = 0;
-
-        for i in (0..frame.len()).step_by(2) {
-            frame_size -= 1;
-            buffer.push_str(&frame[i..i+2]);
-            if frame_size <= 0 && current_state.clone() as i8 > ParsingStep::FrameSize as i8 {
-                current_state = ParsingStep::CheckSum;
-            } else {
-                let lastByte = buffer[buffer.len()-2..].to_string();
-                checksum= checksum.wrapping_add(u8::from_str_radix(&lastByte, 16).unwrap());
-            }
-            match current_state {
-                ParsingStep::Sof => {
-                    if buffer == self.sof {
-                        buffer.clear();
-                        current_state = ParsingStep::FrameSize;
-                    }
-                },
-                ParsingStep::FrameSize => {
-                    frame_size += i16::from_str_radix(&buffer, 16).unwrap();
-                    buffer.clear();
-                    current_state = ParsingStep::DataId;
-                }, 
-                ParsingStep::DataId => {
-                    if self.parsing_ids.contains_key(&buffer) {
-                        parsed_data.insert(self.parsing_ids.get(&buffer).unwrap().clone(), Vec::new());
-                        data_id = self.parsing_ids.get(&buffer).unwrap().clone();
-                        buffer.clear();
-                        current_state = ParsingStep::DataSize;
-                    }
-                    
-                },
-                ParsingStep::DataSize => {
-                    data_size = i16::from_str_radix(&buffer, 16).unwrap();
-                    buffer.clear();
-                    current_state = ParsingStep::Data;
-                }, 
-                ParsingStep::Data => {
-                    //Float Data
-                    if (buffer.len() / 2) % 4 == 0 && data_size % 4 == 0 {
-                        let float_val = f32::from_bits(u32::from_str_radix(&buffer, 16).unwrap());
-                        buffer.clear();
-                        let mut n_data= 0;
-                        if let Some(data_vec) = parsed_data.get_mut(&data_id) {
-                            data_vec.push(float_val);
-                            n_data = data_vec.len();
-                        }
-                        if n_data == data_size as usize / 4 {
-                            current_state = ParsingStep::DataId;
-                        }
-                        
-                    }
-                    //Int Data
-                    else if (buffer.len() / 2) % 2 == 0 && data_size % 2 == 0 && data_size % 4 != 0 {
-                        let int_val = i16::from_str_radix(&buffer, 16).unwrap();
-                        buffer.clear();
-                        let mut n_data= 0;
-                        if let Some(data_vec) = parsed_data.get_mut(&data_id) {
-                            data_vec.push(int_val as f32);
-                            n_data = data_vec.len();
-                        }
-                        if n_data == data_size as usize / 2 {
-                            current_state = ParsingStep::DataId;
-                        }
-                    }
-                    
-                },
-                ParsingStep::CheckSum => {
-                    if checksum == u8::from_str_radix(&buffer, 16).unwrap() {
-                        println!("Checksum valid for frame: {}", frame);
-                        return parsed_data;
-                    } else {
-                        println!("Checksum invalid for frame: {}", frame);
-                    }
-                }
+        let mut remain_bytes= -1;
+        let starting_index= utils::find_pattern(frame.clone(), self.sof.clone());
+        if starting_index > 0 {
+            for _ in 0..starting_index {
+                let __= frame.remove(0);
             }
         }
-        parsed_data.clear();
+        for byte in &self.sof {
+            checksum = checksum.wrapping_add(*byte);
+        }
+        for byte in &frame[self.sof.clone().len()..] {
+            buffer.push(*byte);
+            match current_state {
+                ParsingStep::FrameSize => {
+                    frame_size= *byte as i16;
+                    remain_bytes= frame_size - self.sof.len() as i16;
+                    buffer.clear();
+                    current_state = ParsingStep::DataId;
+                    checksum = checksum.wrapping_add(*byte);
+                },
+                ParsingStep::DataId => {
+                    checksum = checksum.wrapping_add(*byte);
+                    for id in self.parsing_ids.keys() {
+                        if buffer == *id {
+                            parsed_data.insert(self.parsing_ids[id].clone(), vec![]);
+                            data_id = self.parsing_ids[id].clone();
+                            buffer.clear();
+                            current_state = ParsingStep::DataSize;
+                            break;
+                        }
+                    }
+                }
+                ParsingStep::DataSize => {
+                    checksum = checksum.wrapping_add(*byte);
+                    data_size= *byte as i16;
+                    buffer.clear();
+                    current_state = ParsingStep::Data;
+                },
+                ParsingStep::Data => {
+                    checksum = checksum.wrapping_add(*byte);
+                    if (buffer.len() >= data_size as usize) {
+                        for i in (0..buffer.len()).step_by(FLOAT_SIZE) {
+                            let float_val = f32::from_le_bytes([buffer[i], buffer[i+1], buffer[i+2], buffer[i+3]]);
+                            if let Some(data_vec) = parsed_data.get_mut(&data_id) {
+                                data_vec.push(float_val);
+                            }
+                        }
+                        buffer.clear();
+                        data_size= 0;
+                        data_id= String::new();
+                        if (remain_bytes <= 2) {
+                            current_state = ParsingStep::CheckSum;
+                        } else {
+                            current_state = ParsingStep::DataId;
+                        }
+                    }
+
+                }, 
+                ParsingStep::CheckSum => {
+                    if checksum != *byte {
+                        println!("Checksum invalid");
+                        parsed_data.clear();
+                    }
+                    break;
+                }
+            }
+            remain_bytes -= 1;
+        }
+        if (current_state != ParsingStep::CheckSum) {
+            println!("Frame incomplete");
+            parsed_data.clear();
+        }
         return parsed_data;
     }
 
-    pub fn encode_frame(&self, data: HashMap<String, Vec<f32>>) -> String {
-        let mut encoded_frame = self.sof.clone() + "00";
-        let mut checksum: u8 = 0;
-        for i in (0..self.sof.len()).step_by(2) {
-            let last_byte = self.sof[i..i+2].to_string();
-            checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
-        }
+    pub fn encode_frame(&self, data: HashMap<Vec<u8>, Vec<f32>>) -> Vec<u8> {
+        let mut encoded_frame = self.sof.clone();
+        encoded_frame.push(0x00); // Placeholder for frame size
         for (id, values) in data {
-            for i in (0..id.len()).step_by(2) {
-                let last_byte: String = id[i..i+2].to_string();
-                checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
-            }
-            encoded_frame += &id;
-            let data_size = values.len() * 4; // Assuming float values
-            encoded_frame += &format!("{:02x}", data_size);
-            checksum = checksum.wrapping_add(data_size as u8);
-            for value in values {
-                let bits_value = value.to_bits();
-                let hex_value = format!("{:08x}", bits_value);
-                for i in (0..hex_value.len()).step_by(2) {
-                    let last_byte = hex_value[i..i+2].to_string();
-                    checksum = checksum.wrapping_add(u8::from_str_radix(&last_byte, 16).unwrap());
-                }
-                encoded_frame += &hex_value;
+            encoded_frame.extend(id.iter());
+            encoded_frame.push((values.len() * FLOAT_SIZE) as u8);
+            for val in &values {
+                encoded_frame.extend(val.to_be_bytes());
             }
         }
-        let frame_size = (encoded_frame.len() / 2) + 1;
-        checksum = checksum.wrapping_add(frame_size as u8);
-        encoded_frame += &format!("{:02x}", checksum);
-        encoded_frame= encoded_frame.replace(&(self.sof.clone() + "00"),&(self.sof.clone() + &format!("{:02x}", frame_size)));
+        let mut checksum: u8 = 0;
+        for byte in &encoded_frame {
+            checksum = checksum.wrapping_add(*byte);
+        }
+        checksum= checksum.wrapping_add(encoded_frame.len() as u8 + 1);
+        encoded_frame.push(checksum);
+        encoded_frame[self.sof.len()]= encoded_frame.len() as u8;
+        
         return encoded_frame;
     }
 }

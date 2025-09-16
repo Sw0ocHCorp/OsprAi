@@ -1,8 +1,10 @@
 import { Button, VerticalBox, TextEdit, HorizontalBox, ScrollView } from "std-widgets.slint";
 
-struct WorldMap {
-    lat: float,
-    lon: float,
+struct Perception {
+    lin_speed: [float],
+    rot_speed: [float],
+    location: [float],
+    current_alt: float,
     roll: float,
     pitch: float,
     yaw: float,
@@ -14,8 +16,13 @@ struct DisplaySize {
 }
 
 export component OsprAiWindow inherits Window {
-    in-out property <string> connection_msg: "Not Connected";
+    in-out property <string> connection_msg: "TEST";
     in-out property <string> arm_msg: "Arm\nDrone";
+    in-out property <float> altitude: 0.0;
+    in-out property <[float]> location: [0.0, 0.0];
+    in-out property <[float]> lin_speed: [0.0, 0.0, 0.0];
+    in-out property <[float]> rot_speed: [0.0, 0.0, 0.0];
+    in-out property <[float]> orientation: [0.0, 0.0, 0.0];
     in property <image> cam_display;
     in property <image> monitoring_display;
     in-out property <DisplaySize> cam_display_size: { 
@@ -25,13 +32,6 @@ export component OsprAiWindow inherits Window {
     in-out property <DisplaySize> monitoring_display_size: { 
         width: monitoring_display.width / 1px,
         height: monitoring_display.height / 1px,
-    };
-    in-out property <WorldMap> perception_data: {
-        lat: 0,
-        lon: 0.0,
-        roll: 0.0,
-        pitch: 0.0,
-        yaw: 0.0,
     };
     callback arm_drone();
     callback disarm_drone();
@@ -74,33 +74,61 @@ export component OsprAiWindow inherits Window {
                         placeholder-text: "  Drone Logs";
                     }
                 }
-                VerticalLayout {
+                HorizontalLayout {
                     padding-bottom: 10px;
                     padding-top: 10px;
-                    Text {
-                        min-height: 30px;
-                        max-height: 40px;
-                        text: "Current GPS Location:";
-                        horizontal-alignment: center;
-                        font-weight: 800;                    
-                    }
-                    HorizontalLayout {
-                        spacing: 8px;
-                        padding-top: 10px;
+                    VerticalLayout {
                         padding-bottom: 10px;
-                        min-height: 30px;
-                        max-height: 40px;
+                        padding-top: 10px;
                         Text {
-                            text: root.perception_data.lat;
+                            min-height: 30px;
+                            max-height: 40px;
+                            text: "Current GPS Location";
                             horizontal-alignment: center;
-                            vertical-alignment: top;
-                            
+                            font-weight: 800;                    
                         }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            padding-top: 10px;
+                            padding-bottom: 10px;
+                            min-height: 30px;
+                            max-height: 40px;
+                            Text {
+                                text: location[0].to-precision(10);
+                                horizontal-alignment: center;
+                                vertical-alignment: top;
+                                
+                            }
+                            Text {
+                                text: location[1].to-precision(10);
+                                horizontal-alignment: center;
+                                vertical-alignment: top;
+                                
+                            }
+                        }
+                    }
+                    VerticalLayout {
+                        padding-bottom: 10px;
+                        padding-top: 10px;
                         Text {
-                            text: root.perception_data.lon;
+                            min-height: 30px;
+                            max-height: 40px;
+                            text: "Altitude ";
                             horizontal-alignment: center;
-                            vertical-alignment: top;
-                            
+                            font-weight: 800;                    
+                        }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            padding-top: 10px;
+                            padding-bottom: 10px;
+                            min-height: 30px;
+                            max-height: 40px;
+                            Text {
+                                text: altitude.to-precision(7);
+                                horizontal-alignment: center;
+                                vertical-alignment: top;
+                                
+                            }
                         }
                     }
                 }
@@ -121,23 +149,25 @@ export component OsprAiWindow inherits Window {
                         padding-bottom: 10px;
                         min-height: 30px;
 
+                        // Reserve enough width to fit the largest expected text,
+                        // include minus sign, digits, decimal point, etc.
+                        // Adjust 120px or so depending on how many characters your precision uses.
+
                         Text {
-                            text: root.perception_data.roll;
                             horizontal-alignment: center;
                             vertical-alignment: top;
-                            
+                            // Pad positive values with a space
+                            text: (orientation[0] < 0 ? "" : " ") + orientation[0].to-fixed(2);
                         }
                         Text {
-                            text: root.perception_data.pitch;
                             horizontal-alignment: center;
                             vertical-alignment: top;
-                            
+                            text: (orientation[1] < 0 ? "" : " ") + orientation[1].to-fixed(2);
                         }
                         Text {
-                            text: root.perception_data.yaw;
                             horizontal-alignment: center;
                             vertical-alignment: top;
-                            
+                            text: (orientation[2] < 0 ? "" : " ") + orientation[2].to-fixed(2);
                         }
                     }
                 }

@@ -1,11 +1,14 @@
 use tokio::sync::broadcast::{channel, Sender, Receiver};
 use crate::gamepad_manager::GamepadCmd;
 use crate::ui::UICmd;
+use crate::utils::WorldMap;
 
 #[derive(Debug, Clone)]
 pub enum MessageType {
-    UDPFrame(String),
+    UDPFrame(Vec<u8>),
     ControllerCmd(GamepadCmd),
+    UDPAddressAndPort(String, u16),
+    WMap(WorldMap),
     GUICmd(UICmd)
 }
 
