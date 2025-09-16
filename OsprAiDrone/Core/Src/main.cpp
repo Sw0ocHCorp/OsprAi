@@ -51,17 +51,23 @@ using namespace OsprAi;
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
 
-SPI_HandleTypeDef hspi2;
-
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim7;
 TIM_HandleTypeDef htim8;
 
+UART_HandleTypeDef huart5;
+
 /* USER CODE BEGIN PV */
+ServosController servos(StaticVector<TIM_HandleTypeDef *, 10> {&htim2},
+										StaticVector<StaticVector<uint32_t, 4>, 10> {
+											StaticVector<uint32_t, 4> {TIM_CHANNEL_1, TIM_CHANNEL_2}
+										});
 ImuManager imu(100, StaticVector<uint8_t, 10> {MPU1_SLAVE_ADDR, MPU2_SLAVE_ADDR}, 3);
 BarometerManager barom(100, {BARO1_SLAVE_ADDR}, 1);
 FlightController fc(50);
 FrameParser *parser;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -71,7 +77,8 @@ static void MX_TIM2_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM1_Init(void);
-static void MX_SPI2_Init(void);
+static void MX_UART5_Init(void);
+static void MX_TIM7_Init(void);
 /* USER CODE BEGIN PFP */
 /* USER CODE END PFP */
 
@@ -112,7 +119,8 @@ int main(void)
   MX_TIM8_Init();
   MX_I2C1_Init();
   MX_TIM1_Init();
-  MX_SPI2_Init();
+  MX_UART5_Init();
+  MX_TIM7_Init();
   /* USER CODE BEGIN 2 */
   parser= new FrameParser(StaticVector<uint8_t, 10>{0xAB, 0xCD}, StaticVector<StaticVector<uint8_t, 10>, 10> {StaticVector<uint8_t, 10>{0x00, 0x0A}, StaticVector<uint8_t, 10>{0x00, 0x0B},
 	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  	  StaticVector<uint8_t, 10>{0x00, 0x0C}, StaticVector<uint8_t, 10>{0x00, 0x0D},
@@ -121,22 +129,25 @@ int main(void)
 																												  StaticVector<char, 10>{'t','L','i','n','S','p','e','e','d'}, StaticVector<char, 10>{'t','T','h','e','t','a'},
 																												  StaticVector<char, 10>{'t','S','e','r','v','o','s'}});
   //imu.SetFirstInSchedule();
+  servos.InitController();
+  fc.AttachMotorSetpointObserver(servos.GetSetpointObserver());
   imu.SetI2CInterface(&hi2c1);
   barom.SetI2CInterface(&hi2c1);
-  fc.SetBus(&hspi2);
-  fc.SetParser(*parser);
-  HAL_StatusTypeDef status= imu.SensorConfiguration();
-  status= barom.SensorConfiguration();
+  fc.SetBus(&huart5);
+  fc.SetParser(parser);
+  imu.SensorConfiguration();
+  barom.SensorConfiguration();
   imu.SetNextModule(&barom);
   barom.SetNextModule(&fc);
+  barom.SetNextModule(&servos);
   imu.AttachDataObserver(fc.GetDataObserver(1));
   barom.AttachDataObserver(fc.GetDataObserver(2));
   HAL_TIM_Base_Start_IT(&htim8);
+  ///fc.ExecSecondTask();
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
   while (1)
   {
     /* USER CODE END WHILE */
@@ -248,46 +259,6 @@ static void MX_I2C1_Init(void)
 }
 
 /**
-  * @brief SPI2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_SPI2_Init(void)
-{
-
-  /* USER CODE BEGIN SPI2_Init 0 */
-
-  /* USER CODE END SPI2_Init 0 */
-
-  /* USER CODE BEGIN SPI2_Init 1 */
-
-  /* USER CODE END SPI2_Init 1 */
-  /* SPI2 parameter configuration*/
-  hspi2.Instance = SPI2;
-  hspi2.Init.Mode = SPI_MODE_MASTER;
-  hspi2.Init.Direction = SPI_DIRECTION_2LINES;
-  hspi2.Init.DataSize = SPI_DATASIZE_8BIT;
-  hspi2.Init.CLKPolarity = SPI_POLARITY_LOW;
-  hspi2.Init.CLKPhase = SPI_PHASE_1EDGE;
-  hspi2.Init.NSS = SPI_NSS_SOFT;
-  hspi2.Init.BaudRatePrescaler = SPI_BAUDRATEPRESCALER_16;
-  hspi2.Init.FirstBit = SPI_FIRSTBIT_MSB;
-  hspi2.Init.TIMode = SPI_TIMODE_DISABLE;
-  hspi2.Init.CRCCalculation = SPI_CRCCALCULATION_DISABLE;
-  hspi2.Init.CRCPolynomial = 7;
-  hspi2.Init.CRCLength = SPI_CRC_LENGTH_DATASIZE;
-  hspi2.Init.NSSPMode = SPI_NSS_PULSE_ENABLE;
-  if (HAL_SPI_Init(&hspi2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN SPI2_Init 2 */
-
-  /* USER CODE END SPI2_Init 2 */
-
-}
-
-/**
   * @brief TIM1 Initialization Function
   * @param None
   * @retval None
@@ -341,11 +312,11 @@ static void MX_TIM1_Init(void)
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   sConfigOC.OCIdleState = TIM_OCIDLESTATE_RESET;
   sConfigOC.OCNIdleState = TIM_OCNIDLESTATE_RESET;
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
   {
     Error_Handler();
   }
-  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
@@ -435,6 +406,48 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM7 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM7_Init(void)
+{
+
+  /* USER CODE BEGIN TIM7_Init 0 */
+
+  /* USER CODE END TIM7_Init 0 */
+
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM7_Init 1 */
+
+  /* USER CODE END TIM7_Init 1 */
+  htim7.Instance = TIM7;
+  htim7.Init.Prescaler = 80;
+  htim7.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim7.Init.Period = 100;
+  htim7.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim7) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  if (HAL_TIM_OnePulse_Init(&htim7, TIM_OPMODE_SINGLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim7, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM7_Init 2 */
+
+  /* USER CODE END TIM7_Init 2 */
+
+}
+
+/**
   * @brief TIM8 Initialization Function
   * @param None
   * @retval None
@@ -482,6 +495,43 @@ static void MX_TIM8_Init(void)
 }
 
 /**
+  * @brief UART5 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_UART5_Init(void)
+{
+
+  /* USER CODE BEGIN UART5_Init 0 */
+
+  /* USER CODE END UART5_Init 0 */
+
+  /* USER CODE BEGIN UART5_Init 1 */
+
+  /* USER CODE END UART5_Init 1 */
+  huart5.Instance = UART5;
+  huart5.Init.BaudRate = 921600;
+  huart5.Init.WordLength = UART_WORDLENGTH_8B;
+  huart5.Init.StopBits = UART_STOPBITS_1;
+  huart5.Init.Parity = UART_PARITY_NONE;
+  huart5.Init.Mode = UART_MODE_TX_RX;
+  huart5.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart5.Init.OverSampling = UART_OVERSAMPLING_16;
+  huart5.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+  huart5.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_RXOVERRUNDISABLE_INIT|UART_ADVFEATURE_DMADISABLEONERROR_INIT;
+  huart5.AdvancedInit.OverrunDisable = UART_ADVFEATURE_OVERRUN_DISABLE;
+  huart5.AdvancedInit.DMADisableonRxError = UART_ADVFEATURE_DMA_DISABLEONRXERROR;
+  if (HAL_UART_Init(&huart5) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN UART5_Init 2 */
+
+  /* USER CODE END UART5_Init 2 */
+
+}
+
+/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -497,6 +547,7 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
+  __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
@@ -532,19 +583,6 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(Debug_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pin : DM_Ready_IT_Pin */
-  GPIO_InitStruct.Pin = DM_Ready_IT_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(DM_Ready_IT_GPIO_Port, &GPIO_InitStruct);
-
-  /* EXTI interrupt init*/
-  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
-
-  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
-
 /* USER CODE BEGIN MX_GPIO_Init_2 */
 /* USER CODE END MX_GPIO_Init_2 */
 }
@@ -554,45 +592,28 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
 	if (htim == &htim8) {
 		imu.ExecMainTask();
+		/*test= !test;
+		if (test) {
+			fc.ExecMainTask();
+		}
+		else {
+			fc.ExecSecondTask();
+		}*/
 	}
 }
 
-void HAL_SPI_TxCpltCallback(SPI_HandleTypeDef * hspi)
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
 {
-	//fc.ExecMainTask();
+	fc.ProcessReceivedData(Size);
+  //HAL_UARTEx_ReceiveToIdle_IT(&huart2, RxData, 30);
 }
 
-void HAL_SPI_RxCpltCallback(SPI_HandleTypeDef * hspi)
-{
-	int a= 1;
-    // RX Done .. Do Something ...
-}
-
-void HAL_SPI_TxRxCpltCallback(SPI_HandleTypeDef *hspi) {
-	fc.ProcessReceivedFrame();
-	//txData += 1;
-	/*HAL_Delay(1000);
-	HAL_StatusTypeDef status= HAL_SPI_TransmitReceive_IT(&hspi2, &txData, &rxData, 1);*/
-}
-
-void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
-	int a= 1;
-}
-
-
-/*void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
-{
-	//gps.TakeMeasurement();
-
-}
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef *huart)
 {
-	//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
 	fc.CallNextModule();
-	//gps.TakeMeasurement();
 
-}*/
+}
 
 void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 {
@@ -600,14 +621,21 @@ void HAL_I2C_MemRxCpltCallback (I2C_HandleTypeDef * hi2c)
 		if (hi2c->Devaddress == 0xEC) {
 			if (hi2c->Instance->TXDR == 0xF7) {
 				barom.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
-				//HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
 			}
-			barom.CallNextModule();
 
-			//HAL_GPIO_WritePin(Debug_GPIO_Port, Debug_Pin, GPIO_PIN_SET);
+			barom.CallNextModule();
 		}
 		else {
 			imu.ProcessMeasurement(hi2c->Devaddress, hi2c->Instance->TXDR);
+		}
+	}
+}
+
+void HAL_I2C_MemTxCpltCallback (I2C_HandleTypeDef * hi2c)
+{
+	if (hi2c == &hi2c1) {
+		if (hi2c->Devaddress == 0xEC) {
+			barom.CallNextModule();
 		}
 	}
 }

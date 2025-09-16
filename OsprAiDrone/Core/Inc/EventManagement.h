@@ -70,13 +70,15 @@ class ScheduledModule {
 		std::shared_ptr<Observer<void>> ExecTaskObserver;
 		int Freq;
 		uint32_t StartTime;
+		bool IsMultiTask;
+		bool IsSecondTask= true;
 
 	public:
-		ScheduledModule(int freq) {
+		ScheduledModule(int freq, bool isMultiTask) {
 			Freq= freq;
 			ExecTaskObserver = std::make_shared<Observer<void>>();
 			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::StartMainTask, this));
-
+			IsMultiTask= isMultiTask;
 		}
 
 		void SetFirstInSchedule() {
@@ -92,13 +94,29 @@ class ScheduledModule {
 		}
 
 		void StartMainTask() {
-			if (IsFirst || HAL_GetTick() - StartTime >= (1000 / Freq) - 1) {
-				StartTime = HAL_GetTick();
-				ExecMainTask();
+			if (IsMultiTask) {
+				if (IsFirst || (int)(HAL_GetTick() - StartTime) >= (1000 / (Freq*2)) - 1) {
+					StartTime = HAL_GetTick();
+					IsSecondTask= !IsSecondTask;
+					if (IsSecondTask) {
+						ExecSecondTask();
+					} else {
+						ExecMainTask();
+					}
+				}
+			} else {
+				if (IsFirst || (int)(HAL_GetTick() - StartTime) >= (1000 / Freq) - 1) {
+					StartTime = HAL_GetTick();
+					ExecMainTask();
+				}
 			}
 		}
 
 		virtual void ExecMainTask()= 0;
+
+		virtual void ExecSecondTask() {
+
+		}
 
 };
 

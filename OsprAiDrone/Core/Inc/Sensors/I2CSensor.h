@@ -26,7 +26,7 @@ template <unsigned int NDataType>
 			Event<float> DataStreamingEvent;
 
 		public:
-			I2CSensor(int freq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) :ScheduledModule(freq) {
+			I2CSensor(int freq, StaticVector<uint8_t, 10> sensorAddresses, int samplesPerMes) :ScheduledModule(freq, false) {
 				SensorAddresses = sensorAddresses;
 				SamplesPerMes= samplesPerMes;
 				for (int i= 0; i < MeasurementsData.GetMaxSize(); i++) {

@@ -8,7 +8,13 @@
 #ifndef INC_ACTUATORCONTROLLER_H_
 #define INC_ACTUATORCONTROLLER_H_
 
-#define MAX_PWM_VALUE 65535
+#define MAX_PWM_VALUE 						65535
+#define LL_PWM_SETPOINT						10
+#define HL_SPEED_VEC_SETPOINT				20
+#define HL_ANGLE_SETPOINT					21
+#define HL_ANGLE_SPEED_VEC_SETPOINT			22
+
+
 
 #include "main.h"
 #include "utils.h"
@@ -16,14 +22,13 @@
 #include <queue>
 
 struct MotorSetpoint : Message {
-	bool IsLLSetpoint;
-	vector<float> PWMSetpoint;
-	bool IsHLSetpoint;
-	vector<float> SpeedVecSetpoint;
+	int SetpointType= 0;
+	StaticVector<float, 10> PWMSetpoint;
+	StaticVector<float, 3> SpeedVecSetpoint;
 	float AngleSetpoint;
-	vector<float> CurrentSpeedVec;
-	vector<float> CurrentOrientation;
-	vector<float> CurrentLocation;
+	StaticVector<float, 3> CurrentSpeedVec;
+	StaticVector<float, 3> CurrentOrientation;
+	StaticVector<float, 2> CurrentLocation;
 };
 
 namespace OsprAi {
@@ -45,43 +50,52 @@ namespace OsprAi {
 		}
 
 		float GetNewSetPoint() {
-
+			return true;
 		}
 	};
 
 	class ActuatorController : public ScheduledModule {
 		private:
 		protected:
-			std::map<TIM_HandleTypeDef *, std::vector<unsigned int>> motorSources;
+
+			StaticVector<StaticVector<uint32_t, 4>, 10> MotorChannels;
+			StaticVector<TIM_HandleTypeDef *, 10> MotorSources;
 			MotorSetpoint CurrentSetpoint;
 			bool isAutonomous= false;
 			PIDController *pids;
+			std::shared_ptr<Observer<MotorSetpoint>> SetpointObserver;
 			queue<MotorSetpoint> SetpointsBuffer;
-			int BufferSize;
+			int BufferSize= 10;
 			bool HaveReachSetpoint= true;
 			int ArrValue;
 
 		public:
-			ActuatorController(int freq) : ScheduledModule(freq) {
+			ActuatorController(StaticVector<TIM_HandleTypeDef *, 10> motorSources, StaticVector<StaticVector<uint32_t, 4>, 10> motorChannels,
+																													int freq, bool isAutonomous) : ScheduledModule(freq, false) {
+				MotorSources = motorSources;
+				MotorChannels= motorChannels;
+				SetpointObserver= std::make_shared<Observer<MotorSetpoint>>();
+				SetpointObserver->setCallback(std::bind(&ActuatorController::OnSetpointReceived, this, std::placeholders::_1));
 			}
 
-			ActuatorController(int freq, int bufferSize) : ScheduledModule(freq) {
+			ActuatorController(StaticVector<TIM_HandleTypeDef *, 10> motorSources, StaticVector<StaticVector<uint32_t, 4>, 10> motorChannels,
+																									int freq, int bufferSize, bool isAutonomous) : ScheduledModule(freq, false) {
 				BufferSize = bufferSize;
+				MotorSources = motorSources;
+				MotorChannels= motorChannels;
 			}
 
 			virtual ~ActuatorController(){
 
 			}
 
-			HAL_StatusTypeDef InitController(std::map<TIM_HandleTypeDef *, std::vector<unsigned int>> motorSources, bool isAutonomous) {
-				this->motorSources = motorSources;
+			HAL_StatusTypeDef InitController() {
+
 				HAL_StatusTypeDef status= HAL_OK;
-				int nMotors=0;
-				for(const auto& timer: this->motorSources) {
-					nMotors += timer.second.size();
-					for (int i= 0; i < timer.second.size(); i++) {
-						status= HAL_TIM_PWM_Start(timer.first, timer.second[i]);
-						ArrValue = timer.first->Instance->ARR;
+				for (int i= 0; i < MotorSources.size(); i++) {
+					for (int j= 0; j < MotorChannels.size(); j++) {
+						status= HAL_TIM_PWM_Start(MotorSources[i], MotorChannels[i][j]);
+						ArrValue = MotorSources[i]->Instance->ARR;
 						if (status != HAL_OK) {
 							return status;
 						}
@@ -92,23 +106,23 @@ namespace OsprAi {
 				return status;
 			}
 
-			void SetControlMode(bool isAutonomous) { this->isAutonomous= isAutonomous; }
-
 			void OnSetpointReceived(MotorSetpoint *setpoint) {
-				while (SetpointsBuffer.size() >= BufferSize)
+				while ((int)SetpointsBuffer.size() >= BufferSize)
 					SetpointsBuffer.pop();
 				SetpointsBuffer.push(*setpoint);
 			}
 
 			void ExecMainTask() {
-				uint32_t test= HAL_GetTick();
-				if (HAL_GetTick() - StartTime >= 1000 / Freq) {
-					StartTime = HAL_GetTick();
-					UpdateMotorsCommand();
-				}
+				UpdateMotorsCommand();
 			}
 
 			virtual void UpdateMotorsCommand()= 0;
+
+			void SetControlMode(bool isAutonomous) { this->isAutonomous= isAutonomous; }
+
+			std::shared_ptr<Observer<MotorSetpoint>> GetSetpointObserver() {
+				return SetpointObserver;
+			}
 	};
 
 	class ServosController : public ActuatorController {
@@ -119,7 +133,8 @@ namespace OsprAi {
 			float MaxAngle;
 			int CurrentDCValue;
 		public:
-			ServosController(int accel=1, float minDutyCylePercent= 0.025, float maxDutyCylePercent= 0.125, float maxAngle= 270, int bufferSize = 50) : ActuatorController(50, bufferSize) {
+			ServosController(StaticVector<TIM_HandleTypeDef *, 10> motorSources, StaticVector<StaticVector<uint32_t, 4>, 10> motorChannels,
+								int accel=1, float minDutyCylePercent= 0.025, float maxDutyCylePercent= 0.125, float maxAngle= 270, int bufferSize = 50) : ActuatorController(motorSources, motorChannels, 50, bufferSize) {
 				Accel = accel;
 				MinDutyCylePercent= minDutyCylePercent;
 				MaxDutyCylePercent = maxDutyCylePercent;
@@ -154,19 +169,19 @@ namespace OsprAi {
 					CurrentSetpoint = SetpointsBuffer.front();
 					SetpointsBuffer.pop();
 				}
-				for(const auto & source : this->motorSources) {
-					for(int i= 0; i < source.second.size(); i++) {
-						if (source.second[i] == TIM_CHANNEL_1) {
-							source.first->Instance->CCR1= CurrentDCValue;
+				for(int i= 0; i < MotorSources.size(); i++) {
+					for (int j= 0; j < MotorChannels[i].size(); j++) {
+						if (MotorChannels[i][j] == TIM_CHANNEL_1) {
+							MotorSources[i]->Instance->CCR1= CurrentDCValue;
 						}
-						if (source.second[i] == TIM_CHANNEL_2) {
-							source.first->Instance->CCR2= CurrentDCValue;
+						if (MotorChannels[i][j] == TIM_CHANNEL_2) {
+							MotorSources[i]->Instance->CCR2= CurrentDCValue;
 						}
-						if (source.second[i] == TIM_CHANNEL_3) {
-							source.first->Instance->CCR3= CurrentDCValue;
+						if (MotorChannels[i][j] == TIM_CHANNEL_3) {
+							MotorSources[i]->Instance->CCR3= CurrentDCValue;
 						}
-						if (source.second[i] == TIM_CHANNEL_4) {
-							source.first->Instance->CCR4= CurrentDCValue;
+						if (MotorChannels[i][j] == TIM_CHANNEL_4) {
+							MotorSources[i]->Instance->CCR4= CurrentDCValue;
 						}
 					}
 				}

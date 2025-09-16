@@ -151,7 +151,7 @@ namespace OsprAi {
 			if (this->MeasurementCalled == false) {
 				this->MeasurementCalled= true;
 			}
-			HAL_I2C_Mem_Write(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0xF4, 1, &this->ModeValue, 1, 1);
+			HAL_I2C_Mem_Write_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0xF4, 1, &this->ModeValue, 1);
 		}
 
 		void CheckIfDataAvailable() {
@@ -178,7 +178,7 @@ namespace OsprAi {
 				if (this->SensorIndex >= (int)this->SensorAddresses.size()) {
 					this->SensorIndex= 0;
 					this->Temperature= Median((float *)this->MeasurementsData[0].data(), this->MeasurementsData[0].size());
-					this->Pressure= Median((float *)this->MeasurementsData[0].data(), this->MeasurementsData[0].size());
+					this->Pressure= Median((float *)this->MeasurementsData[1].data(), this->MeasurementsData[1].size());
 					for (int i = 0; i < (int)this->MeasurementsData.size(); i++) {
 						this->MeasurementsData[i].Clear();
 					}

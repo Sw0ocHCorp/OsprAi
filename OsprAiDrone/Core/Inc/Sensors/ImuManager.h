@@ -223,8 +223,8 @@ public:
 					HAL_I2C_Mem_Read_IT(this->I2cInterface, this->SensorAddresses[this->SensorIndex], 0x43, 1, this->RawData, 6);
 				}
 			} else {
-				float data[6] { this->LinAccelVect[0], this->LinAccelVect[1], this->LinAccelVect[2],
-								this->RotAccelVect[0], this->RotAccelVect[1], this->RotAccelVect[2] };
+				float data[7] { this->LinAccelVect[0], this->LinAccelVect[1], this->LinAccelVect[2],
+								this->RotAccelVect[0], this->RotAccelVect[1], this->RotAccelVect[2], 0.0};
 				DataStreamingEvent.Trigger(data);
 				this->CallNextModuleEvent.Trigger(nullptr);
 			}

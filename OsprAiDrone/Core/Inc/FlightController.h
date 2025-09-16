@@ -16,6 +16,8 @@
 #define MAX_FRAME_SIZE 300
 #define IMU_ID		1
 #define BAROM_ID	2
+#define SERVOS_ID 	3
+#define MOTORS_ID	4
 
 namespace OsprAi {
 	struct OsprAiState {
@@ -28,19 +30,18 @@ namespace OsprAi {
 
 	class FlightController : public ScheduledModule{
 		private:
-			uint8_t IncomingByte= '\n';
-			string Frame;
-			SPI_HandleTypeDef *Bus;
-			FrameParser Parser;
+			UART_HandleTypeDef *Bus;
+			FrameParser *Parser;
 			Event<MotorSetpoint> MotorSetpointReceivedEvent;
 			std::shared_ptr<Observer<float>> ImuObserver;
 			std::shared_ptr<Observer<float>> BarObserver;
 			OsprAiState CurrentState;
-			StaticVector<uint8_t, 1000> CompanionFrame;
-
+			StaticVector<uint8_t, 500> CompanionFrame;
+			uint8_t ReceivedBytes[500];
+			bool WaitingForFrame= false;
 
 		public:
-			FlightController(int freq) : ScheduledModule(freq) {
+			FlightController(int freq) : ScheduledModule(freq, true) {
 				ImuObserver = std::make_shared<Observer<float>>();
 				ImuObserver->setCallback(std::bind(&FlightController::ImuDataReceived, this, std::placeholders::_1));
 				BarObserver = std::make_shared<Observer<float>>();
@@ -70,60 +71,90 @@ namespace OsprAi {
 			}
 
 			void ExecMainTask() {
-				StaticVector<uint8_t, 500> frame= Parser.EncodeFrame(StaticVector<StaticVector<uint8_t, 10>, 10> { StaticVector<uint8_t, 10> {0x00, 0x0F}, StaticVector<uint8_t, 10>{0x00, 0x10},
+				StaticVector<uint8_t, 500> frame= Parser->EncodeFrame(StaticVector<StaticVector<uint8_t, 10>, 10> { StaticVector<uint8_t, 10> {0x00, 0x0F}, StaticVector<uint8_t, 10>{0x00, 0x10},
 																																StaticVector<uint8_t, 10>{0x00, 0x11}, StaticVector<uint8_t, 10>{0x00, 0x12}
 																															},
 																					StaticVector<StaticVector<float,10>, 10> { StaticVector<float, 10> {CurrentState.LinearVelocity[0], CurrentState.LinearVelocity[1], CurrentState.LinearVelocity[2]},
 																																	StaticVector<float, 10> {CurrentState.AngularVelocity[0], CurrentState.AngularVelocity[1], CurrentState.AngularVelocity[2]},
 																																	StaticVector<float, 10> {CurrentState.Altitude}, StaticVector<float, 10> {CurrentState.Theta}
 																															});
-				frame.Add('\n');
 
-				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_SET);
-				HAL_StatusTypeDef status= HAL_SPI_TransmitReceive_IT(Bus, (uint8_t *)frame.data(), CompanionFrame.mutData(), frame.GetMaxSize());
-				//HAL_StatusTypeDef status= HAL_SPI_Transmit_IT(Bus, (const uint8_t *)frame.GetData(), frame.GetSize());
-				//HAL_StatusTypeDef status= HAL_UART_Transmit_IT(Bus, (uint8_t *)frame.GetData(), frame.GetSize());
+				HAL_UART_Transmit_IT(Bus, frame.data(), frame.size());
 
 			}
 
-			void ListeningForFrame() {
-				/*map<string, vector<float>> data;
-				HAL_UART_Receive_IT(Bus, &this->IncomingByte, 1);
-					if (this->IncomingByte != '\n')
-					Frame.push_back(this->IncomingByte);
-				else if (this->IncomingByte == '\n') {
-					if (Frame.size()> 5)
-						data = Parser.ParseFrame(Frame);
-					if (data.count("sticks")) {
-						MotorSetpoint setpoint;
-						setpoint.AngleSetpoint = atan2(data["sticks"].at(1), data["sticks"].at(0));
-						//MotorSetpointReceivedEvent.Trigger(&setpoint);
+			void ProcessIncomingFrame(StaticVector<StaticVector<float, 10>, 10> frameData) {
+				StaticVector<StaticVector<char, 10>, 10> labels= Parser->GetParsingLabels();
+				MotorSetpoint setpoint;
+				//setpoint.PWMSetpoint= frameData[i];
+				for(int i= 0; i < labels.size(); i++) {
+					if (Equal(labels[i].data(), labels[i].size(), (const char *)"sticks", 6)) {
+						if (setpoint.SetpointType == HL_SPEED_VEC_SETPOINT)
+							setpoint.SetpointType= HL_ANGLE_SPEED_VEC_SETPOINT;
+						else
+							setpoint.SetpointType= HL_ANGLE_SETPOINT;
+						setpoint.AngleSetpoint= atan2(frameData[i][1], frameData[i][0]);
 					}
-					Frame.clear();
-				}*/
+				}
+				if (setpoint.SetpointType != 0) {
+					MotorSetpointReceivedEvent.Trigger(&setpoint);
+				}
 			}
 
-			void ProcessReceivedFrame() {
-				//HAL_GPIO_WritePin(GPIOA, LD2_Pin, GPIO_PIN_RESET);
-				int a= 1;
+			void ProcessReceivedData(int dataSize) {
+				//Let's assume the data is store in a specific array
+				int startIndex= FindPattern(ReceivedBytes, dataSize, Parser->GetSOF().data(),
+																		Parser->GetSOF().size());
+				if (startIndex >= 0) {
+					CompanionFrame.Add(ReceivedBytes, dataSize);
+					for (int i= 0; i < startIndex; i++) {
+						CompanionFrame.RemoveAt(0);
+					}
+					StaticVector<StaticVector<float, 10>, 10> data= Parser->ParseFrame(CompanionFrame, true);
+					if (data.size() > 0) {
+						HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+						ProcessIncomingFrame(data);
+					}
+					else
+						HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+					CompanionFrame.Clear();
+				} else {
+					HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);
+				}
 			}
 
-			void SetBus(SPI_HandleTypeDef *bus) {
+			void ExecSecondTask() {
+				HAL_UARTEx_ReceiveToIdle_IT(Bus, ReceivedBytes, sizeof(ReceivedBytes));
+				/*HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);
+				HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin);*/
+			}
+
+			void SetBus(UART_HandleTypeDef *bus) {
 				Bus = bus;
 			}
 
-			void SetParser(FrameParser parser) {
+			void SetParser(FrameParser *parser) {
 				Parser = parser;
 			}
 
-			shared_ptr<Observer<float>> GetDataObserver(int sensorID) {
-				if (sensorID == IMU_ID)
+			void AttachMotorSetpointObserver(std::shared_ptr<Observer<MotorSetpoint>> obs) {
+				MotorSetpointReceivedEvent.AddObserver(obs);
+			}
+
+
+			shared_ptr<Observer<float>> GetDataObserver(int deviceID) {
+				if (deviceID == IMU_ID)
 					return ImuObserver;
-				if (sensorID == BAROM_ID)
+				if (deviceID == BAROM_ID)
 					return BarObserver;
 				else
 					return nullptr;
 			}
+
+			UART_HandleTypeDef *GetBus() {
+				return Bus;
+			}
+
 	};
 }
 

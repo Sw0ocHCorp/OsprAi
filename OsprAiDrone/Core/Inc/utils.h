@@ -60,7 +60,7 @@ class StaticVector  {
 			}
 		}
 
-		bool Remove(T data) {
+		void Remove(T data) {
 			int index= -1;
 			for (int i= 0; i < Size; i++) {
 				if (Data[i] == data) {
@@ -73,15 +73,56 @@ class StaticVector  {
 				for (int i= index +1; index <= Size; i++) {
 					Data[i-1]= Data[i];
 				}
-				return true;
 			}
-			return false;
+			else {
+				throw out_of_range("Size");
+			}
 		}
+
+		void RemoveAt(int index) {
+		    if (index >= 0 && index < (int)Size) { // check against current Size
+		        for (int i = index; i < (int)Size - 1; i++) {
+		            Data[i] = Data[i+1];
+		        }
+		        Size--;
+		    } else {
+		        throw std::out_of_range("Size");
+		    }
+		}
+
 		void Clear() {
 			Size= 0;
 		}
+
+		T Pop() {
+			T head= Data[0];
+			RemoveAt(0);
+			return head;
+		}
+
 		T& operator[](int index) {
-			return Data[index];
+			if (index >= 0 && index < (int)Size)
+				return Data[index];
+			else
+				throw std::out_of_range("Size");
+		}
+
+		vector<T> SubVec(int startIndex, int stopIndex, bool isReverse) {
+			if (startIndex >= 0 && startIndex < (int)Size && stopIndex >= 0 && stopIndex <= (int)Size) {
+				vector<T> data;
+				if (isReverse) {
+					for(int i= stopIndex -1; i >= startIndex; i--) {
+						data.push_back(Data[i]);
+					}
+				} else {
+					for (int i= startIndex; i < stopIndex; i++) {
+						data.push_back(Data[i]);
+					}
+				}
+				return data;
+			}
+			else
+				throw out_of_range("Size");
 		}
 
 		const T *data() {
@@ -95,8 +136,15 @@ class StaticVector  {
 		int size() const {
 			return Size;
 		}
+
 		int GetMaxSize() {
 			return MaxSize;
+		}
+
+		StaticVector<T, MS> Copy() {
+			StaticVector<T, MS> copyVec;
+			copyVec.Add(Data, Size);
+			return copyVec;
 		}
 };
 
@@ -112,7 +160,19 @@ bool Equal(vector<uint8_t> target, vector<uint8_t> pattern) {
 	}
 }
 
-bool Equal(uint8_t *target, int targetSize, uint8_t *pattern, int patternSize) {
+bool Equal(const char *target, int targetSize, const char *pattern, int patternSize) {
+	if (targetSize < patternSize) {
+		return false;
+	} else {
+		for(int i= 0; i < patternSize; i++) {
+			if (target[i] != pattern[i])
+				return false;
+		}
+		return true;
+	}
+}
+
+bool Equal(const uint8_t *target, int targetSize, const uint8_t *pattern, int patternSize) {
 	if (targetSize < patternSize) {
 		return false;
 	} else {
@@ -126,7 +186,6 @@ bool Equal(uint8_t *target, int targetSize, uint8_t *pattern, int patternSize) {
 
 int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern, bool findFromEnd= false) {
 	int index= -1;
-	int i= 0;
 	if (targetStr.size() >= pattern.size()) {
 		if (findFromEnd) {
 			for (int i= (int)targetStr.size() - 1; i >= 0; i--) {
@@ -155,14 +214,14 @@ int FindPattern(vector<uint8_t> targetStr, vector<uint8_t> pattern, bool findFro
 	return index;
 }
 
-int FindPattern(uint8_t *targetStr, int targetStrSize, uint8_t *pattern, int patternSize, bool findFromEnd= false) {
+int FindPattern(const uint8_t *targetStr, int targetStrSize, const uint8_t *pattern, int patternSize, bool findFromEnd= false) {
 	int index= -1;
 	if (targetStrSize >= patternSize) {
 		if (findFromEnd) {
 			for (int i= (int)targetStrSize - 1; i >= 0; i--) {
-				vector<uint8_t> potentialPattern;
+				StaticVector<uint8_t, 10> potentialPattern;
 				for (int j= i; j < min((int)targetStrSize ,i + patternSize); j++) {
-					potentialPattern.push_back(targetStr[j]);
+					potentialPattern.Add(targetStr[j]);
 				}
 				if (Equal(potentialPattern.data(), potentialPattern.size(), pattern, patternSize)) {
 					index= i;
@@ -171,11 +230,10 @@ int FindPattern(uint8_t *targetStr, int targetStrSize, uint8_t *pattern, int pat
 			}
 		} else {
 			for (int i= 0; i < targetStrSize; i++) {
-				vector<uint8_t> potentialPattern;
+				StaticVector<uint8_t, 10> potentialPattern;
 				for (int j= i; j < min((int)targetStrSize ,i + patternSize); j++) {
-					potentialPattern.push_back(targetStr[j]);
+					potentialPattern.Add(targetStr[j]);
 				}
-				uint8_t *test = potentialPattern.data();
 				if (Equal(potentialPattern.data(), potentialPattern.size(), pattern, patternSize)) {
 					index= i;
 					return i;
