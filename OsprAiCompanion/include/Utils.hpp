@@ -1,5 +1,6 @@
 #ifndef UTILS_HPP
 #define UTILS_HPP
+
 #include <vector>
 #include <string>
 #include <string.h>
@@ -8,6 +9,7 @@
 #include <iomanip>
 #include <string>
 #include <sys/time.h>
+#include <fstream>
 
 using namespace std;
 
@@ -71,16 +73,25 @@ class StaticVector  {
 		unsigned int Size= 0;
 	public:
 		StaticVector() {
-
+			memset(Data, 0, MaxSize);
 		}
 
 		StaticVector(std::initializer_list<T> init) {
 			if ((unsigned int)init.size() <= MaxSize) {
+				memset(Data, 0, MaxSize);
 				copy(init.begin(), init.end(), Data);
 				Size= init.size();
+			} else {
+				throw std::out_of_range("Size");
 			}
 		}
-		void Add(T data) {
+
+		StaticVector(const T * d, unsigned int s) {
+			memset(Data, 0, MaxSize);
+			add(d, s);
+		}
+
+		void add(T data) {
 			if (Size < MaxSize) {
 				Data[Size]= data;
 				Size++;
@@ -89,7 +100,7 @@ class StaticVector  {
 			}
 		}
 
-		void Add(const T *data, unsigned int n) {
+		void add(const T *data, unsigned int n) {
 			if (Size + (n-1) < MaxSize) {
 				for (int i= 0; i < (int)n; i++) {
 					Data[Size]= data[i];
@@ -100,7 +111,7 @@ class StaticVector  {
 			}
 		}
 
-		void Remove(T data) {
+		void remove(T data) {
 			int index= -1;
 			for (int i= 0; i < Size; i++) {
 				if (Data[i] == data) {
@@ -118,7 +129,7 @@ class StaticVector  {
 			}
 		}
 
-        void RemoveAt(int index) {
+        void removeAt(int index) {
 			if (index >= 0 && index < MaxSize) {
 				if (index < MaxSize -1) {
                     for (int i= index ; i < Size; i++) {
@@ -131,7 +142,7 @@ class StaticVector  {
 			}
 		}
 
-		void Clear() {
+		void clear() {
 			Size= 0;
 		}
 
@@ -150,7 +161,7 @@ class StaticVector  {
 			return Data;
 		}
 
-		vector<T> SubVec(int start, int end) {
+		vector<T> subVec(int start, int end) {
 			vector<T> d(end-start);
 			for (int i= 0; i < end-start; i++) {
 				d[i]= Data[i+start];
@@ -158,12 +169,12 @@ class StaticVector  {
 			return d;
 		}
 
-		vector<T> SubVec(int index, bool toEnd= true) {
+		vector<T> subVec(int index, bool fromEnd= true) {
 			if (index < 0 || index > Size) {
 				throw out_of_range("Size");
 			} else {
 				vector<T> d;
-				if (toEnd) {
+				if (fromEnd) {
 					for (int i= index; i < Size; i++) {
 						d.push_back(Data[i]);
 					}
@@ -180,7 +191,7 @@ class StaticVector  {
 		int size() const {
 			return Size;
 		}
-		int GetMaxSize() {
+		int maxSize() {
 			return MaxSize;
 		}
 };
@@ -194,6 +205,7 @@ struct SetPoint {
 };
 
 struct WorldMap {
+	float GPSLocation[2];
 	float LinSpeed[3];
 	float RotSpeed[3];
 	float Theta;
@@ -202,6 +214,12 @@ struct WorldMap {
 	StaticVector<float, 10> MotorsSpeed;
 	StaticVector<float, 10> ServosAngle;
 
+};
+
+struct GPSData {
+	float Lat;
+	float Lon;
+	float Speed;
 };
 
 float hexStringToFloat(string hexString) {
@@ -235,51 +253,126 @@ char intToAsciiChar(int value) {
     return static_cast<char>(value);
 }
 
-int findPattern(const char *data, int dataSize, const char *pattern, int patternSize) {
-    int index= -1;
-    if (dataSize >= patternSize) {
-        for(int i= 0; i < dataSize; i++) {
-            if (data[i] == pattern[0] && index == -1) {
-                index= i;
-            } else if (i - index < index + patternSize && data[i] != pattern[i - index] && index >= 0) {
-                index= -1;
-                break;
-            } else if (i - index >= index + patternSize && index >= 0)
-                break;
-        }
-    }
-    return index;
-}
-
-//TO DO: Fix the Function
-int findPattern(const uint8_t *data, int dataSize, const uint8_t *pattern, int patternSize) {
+int findPattern(const char *data, int dataSize, const char *pattern, int patternSize, bool fromEnd= false) {
     int index= -1;
 	int sameElements= 0;
 	//IF there is enough elements in data
     if (dataSize >= patternSize) {
-        for(int i= 0; i <= dataSize-patternSize; i++) {
-			//IF first element of the pattern found
-            if (data[i] == pattern[0] && index == -1) {
-                index= i;
-				//Check if all elements of the pattern match the nexts data elements
-				for (int j= 0; j < patternSize; j++) {
-					if (data[i+j] == pattern[j]) {
-						sameElements++;
+		if (fromEnd) {
+			for(int i= dataSize-patternSize; i >= 0; i--) { 
+				if (data[i] == pattern[0] && index == -1) {
+					index= i;
+					//Check if all elements of the pattern match the nexts data elements
+					for (int j= 0; j < patternSize; j++) {
+						if (data[i+j] == pattern[j]) {
+							sameElements++;
+						}
+						//IF not stop search, pattern not match
+						else {
+							index = -1;
+							sameElements= 0;
+							break;
+						}
 					}
-					//IF not stop search, pattern not match
-					else {
-						index = -1;
-						sameElements= 0;
-						break;
+				} 
+				//IF pattern found, STOP search
+				if (sameElements == patternSize) 
+					break;
+			}
+		}
+		else {
+			for(int i= 0; i <= dataSize-patternSize; i++) {
+				//IF first element of the pattern found
+				if (data[i] == pattern[0] && index == -1) {
+					index= i;
+					//Check if all elements of the pattern match the nexts data elements
+					for (int j= 0; j < patternSize; j++) {
+						if (data[i+j] == pattern[j]) {
+							sameElements++;
+						}
+						//IF not stop search, pattern not match
+						else {
+							index = -1;
+							sameElements= 0;
+							break;
+						}
 					}
-				}
-            } 
-			//IF pattern found, STOP search
-			if (sameElements == patternSize) 
-				break;
-        }
+				} 
+				//IF pattern found, STOP search
+				if (sameElements == patternSize) 
+					break;
+			}
+		}
     }
     return index;
+}
+
+int findPattern(const uint8_t *data, int dataSize, const uint8_t *pattern, int patternSize, bool fromEnd= false) {
+    int index= -1;
+	int sameElements= 0;
+	//IF there is enough elements in data
+    if (dataSize >= patternSize) {
+		if (fromEnd) {
+			for(int i= dataSize-patternSize; i >= 0; i--) { 
+				if (data[i] == pattern[0] && index == -1) {
+					index= i;
+					//Check if all elements of the pattern match the nexts data elements
+					for (int j= 0; j < patternSize; j++) {
+						if (data[i+j] == pattern[j]) {
+							sameElements++;
+						}
+						//IF not stop search, pattern not match
+						else {
+							index = -1;
+							sameElements= 0;
+							break;
+						}
+					}
+				} 
+				//IF pattern found, STOP search
+				if (sameElements == patternSize) 
+					break;
+			}
+		}
+		else {
+			for(int i= 0; i <= dataSize-patternSize; i++) {
+				//IF first element of the pattern found
+				if (data[i] == pattern[0] && index == -1) {
+					index= i;
+					//Check if all elements of the pattern match the nexts data elements
+					for (int j= 0; j < patternSize; j++) {
+						if (data[i+j] == pattern[j]) {
+							sameElements++;
+						}
+						//IF not stop search, pattern not match
+						else {
+							index = -1;
+							sameElements= 0;
+							break;
+						}
+					}
+				} 
+				//IF pattern found, STOP search
+				if (sameElements == patternSize) 
+					break;
+			}
+		}
+    }
+    return index;
+}
+
+bool writeInLinuxFile(StaticVector<char, 50> filePath, StaticVector<char, 250> dataToWrite) {
+	ofstream file(filePath.data());
+	if (!file) {
+		cerr << "Error opening " << filePath.data() << endl;
+		return false;
+	}
+	file << dataToWrite.data();
+	if (!file) {
+		cerr << "Error writing data in " << filePath.data() << endl;
+		return false;
+ 	}
+	return true;
 }
 
 #endif

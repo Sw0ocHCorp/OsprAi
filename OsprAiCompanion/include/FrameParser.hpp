@@ -49,26 +49,26 @@ class FrameParser {
                     checksum += Sof[i];
                 }
                 for (int i= startIndex+Sof.size(); i < frame.size(); i++) {
-                    if (buffer.size() +1 == buffer.GetMaxSize()) {
+                    if (buffer.size() +1 == buffer.maxSize()) {
                         break;
                     }
-                    buffer.Add(frame[i]);
+                    buffer.add(frame[i]);
                     if (parsingStep != CHECKSUM)
                         checksum += frame[i];
                     if (parsingStep == FRAME_SIZE) {
                         frameSize= frame[i];
                         for(int j= 0; j < ParsingIds.size(); j++) {
-                            data.Add(StaticVector<float, 10>());
+                            data.add(StaticVector<float, 10>());
                         }
                         remainBytes= frame[i]-Sof.size();
-                        buffer.Clear();
+                        buffer.clear();
                         parsingStep= DATA_ID;
                     }
                     else if (parsingStep == DATA_ID) {
                         for (int j= 0; j < ParsingIds.size(); j++) {
                             if (findPattern(buffer.data(), buffer.size(), ParsingIds[j].data(), ParsingIds[j].size()) >= 0) {
                                 dataIdIndex= j;
-                                buffer.Clear();
+                                buffer.clear();
                                 parsingStep= DATA_SIZE;
                                 break;
                             }
@@ -76,7 +76,7 @@ class FrameParser {
                     } else if (parsingStep == DATA_SIZE) {
                         dataSize= frame[i];
                         parsingStep= DATA;
-                        buffer.Clear();
+                        buffer.clear();
                     } else if (parsingStep == DATA) {
                         if (data[dataIdIndex].size() > 3) {
                             int a= 1;
@@ -85,10 +85,10 @@ class FrameParser {
                             //IF it's a measurement
                             if (dataSize >= sizeof(float)) {
                                 for (int j= 0; j < buffer.size(); j += sizeof(float)) {
-                                    vector<uint8_t> mesurement= buffer.SubVec(j, (int)(j+sizeof(float)));
+                                    vector<uint8_t> mesurement= buffer.subVec(j, (int)(j+sizeof(float)));
                                     float floatVal;
                                     memcpy(&floatVal, mesurement.data(), sizeof(floatVal));
-                                    data[dataIdIndex].Add(floatVal);
+                                    data[dataIdIndex].add(floatVal);
                                 }
                             }
                             //ELSE it's a qualitative value (like value to Arm / DisArm the motors)
@@ -99,7 +99,7 @@ class FrameParser {
                                 parsingStep= CHECKSUM;
                             else
                                 parsingStep= DATA_ID;
-                            buffer.Clear();
+                            buffer.clear();
                             dataSize= -1;
                             dataIdIndex= -1;
                         }
@@ -111,7 +111,7 @@ class FrameParser {
                                 test += frame[startIndex + k];
                                 cout << "Byte " << k << " = " << (int)frame[startIndex + k] << " | Checksum= " << (int)test << endl;
                             }
-                            data.Clear();
+                            data.clear();
                         } /*else {
                             cout << "Received frame valid || Checksum= " << (int)checksum << endl;
                         }*/
@@ -122,7 +122,7 @@ class FrameParser {
             }
             if (parsingStep != CHECKSUM) {
                 cout << "Received frame incomplete -> Frame size= " << frame.size() << endl;
-                data.Clear();
+                data.clear();
             }
             return data;
         }

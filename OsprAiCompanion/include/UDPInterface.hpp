@@ -81,9 +81,9 @@ class UDPInterface : public ComInterface
             return true;
         }
 
-        bool sendRawFrame(StaticVector<uint8_t, 500> rawFrame) override {
+        bool sendRawFrame(StaticVector<uint8_t, 500> *rawFrame) override {
             socklen_t sockLen= sizeof(TargetInterface);
-            int sentBytes = sendto(Socket, rawFrame.data(), rawFrame.size(), 0, (struct sockaddr *)&TargetInterface, sockLen);
+            int sentBytes = sendto(Socket, rawFrame->data(), rawFrame->size(), 0, (struct sockaddr *)&TargetInterface, sockLen);
             if (sentBytes < 0) {
                 cout << "Error sending raw frame" << endl;
                 return false;
@@ -97,7 +97,7 @@ class UDPInterface : public ComInterface
             uint8_t buffer[500];
             int receivedBytes = recvfrom(Socket, buffer, 500, 0, (struct sockaddr *)&TargetInterface, &sockLen);
             if (receivedBytes >= 0)  {
-                frame.Add(buffer, receivedBytes);
+                frame.add(buffer, receivedBytes);
             }
             return frame;
         }

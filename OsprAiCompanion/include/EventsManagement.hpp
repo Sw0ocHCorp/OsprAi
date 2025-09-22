@@ -1,42 +1,115 @@
-#ifndef EVENTS_MANAGEMENT_HPP
-#define EVENTS_MANAGEMENT_HPP
-#include <Utils.hpp>
+#ifndef INC_EVENTMANAGEMENT_H_
+#define INC_EVENTMANAGEMENT_H_
+
 #include <functional>
+#include <memory>
+#include "Utils.hpp"
 
+using namespace std;
 
-template<typename T> class Observer {
-    protected:
-        std::function<void(T)> Callback;
-    public:
-        Observer() = default;
-        virtual ~Observer() = default;
-
-        void setCallback(std::function<void(T)> callback) {
-            Callback = callback;
-        }
-
-        void respond(T data) {
-            Callback(data);
-        }
+struct Message {
 };
 
-template<typename T> class Event { 
-    private:
-        vector<Observer<T> *> observers;
-    public:
-        void trigger(T eventData) {
-            for (Observer<T> *observer : observers) {
-                observer->respond(eventData);
+template <typename T>
+class Observer {
+	protected:
+		function<void(T *)> Callback;
+	public:
+		Observer() { }
+
+		virtual ~Observer() { }
+
+		void respond(T *data) {
+			Callback(data);
+		}
+
+		void setCallback(std::function<void(T *)> callback) {
+			Callback = callback;
+		}
+};
+
+template <typename T>
+class Event {
+	private:
+		StaticVector<std::shared_ptr<Observer<T>>, 10> Observers;
+	public:
+		Event() {}
+		virtual ~Event() {}
+
+		void trigger(T *data) {
+            for (int i= 0; i < Observers.size(); i++) {
+                Observers[i]->respond(data);
             }
-        }
-        void addObserver(Observer<T> *observer) {
-            observers.push_back(observer);
-        }
-        void removeObserver(Observer<T> *observer) {
-            observers.erase(remove(observers.begin(), observers.end(), observer), observers.end());
-        }
-        virtual ~Event() = default;
+		}
+
+		void addObserver(std::shared_ptr<Observer<T>> obs) {
+			Observers.add(obs);
+		}
+
+		void removeObserver(std::shared_ptr<Observer<T>> obs) {
+            for (int i= 0; i < Observers.size(); i++) {
+                if (Observers[i] == obs)
+                    Observers.removeAt(i);
+            }
+		}
+};
+
+class ScheduledModule {
+	private:
+		bool IsFirst= false;
+	protected:
+		Event<void> CallNextModuleEvent;
+		std::shared_ptr<Observer<void>> ExecTaskObserver;
+		int Freq;
+		uint32_t StartTime;
+		bool IsMultiTask;
+		bool IsSecondTask= true;
+
+	public:
+		ScheduledModule(int freq, bool isMultiTask) {
+			Freq= freq;
+			ExecTaskObserver = std::make_shared<Observer<void>>();
+			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::startMainTask, this));
+			IsMultiTask= isMultiTask;
+		}
+
+		void setFirstInSchedule() {
+			IsFirst= true;
+		}
+
+		void callNextModule() {
+			this->CallNextModuleEvent.trigger(nullptr);
+		}
+
+		void setNextModule(ScheduledModule *nextModule) {
+			CallNextModuleEvent.addObserver(nextModule->ExecTaskObserver);
+		}
+
+		void startMainTask() {
+			/*if (IsMultiTask) {
+				if (IsFirst || (int)(HAL_GetTick() - StartTime) >= (1000 / (Freq*2)) - 1) {
+					StartTime = HAL_GetTick();
+					IsSecondTask= !IsSecondTask;
+					if (IsSecondTask) {
+						ExecSecondTask();
+					} else {
+						ExecMainTask();
+					}
+				}
+			} else {
+				if (IsFirst || (int)(HAL_GetTick() - StartTime) >= (1000 / Freq) - 1) {
+					StartTime = HAL_GetTick();
+					ExecMainTask();
+				}
+			}*/
+		}
+
+		virtual void execMainTask()= 0;
+
+		virtual void execSecondTask() {
+
+		}
 
 };
 
-#endif 
+#endif /* INC_EVENTMANAGEMENT_H_ */

@@ -48,8 +48,8 @@ class UARTInterface : public ComInterface
             }
         }
 
-        bool sendRawFrame(StaticVector<uint8_t, 500> rawFrame) override {
-            int nBytes= write(SerialPort, rawFrame.data(), rawFrame.size());
+        bool sendRawFrame(StaticVector<uint8_t, 500> *rawFrame) override {
+            int nBytes= write(SerialPort, rawFrame->data(), rawFrame->size());
             if (nBytes > 0) {
                 return true;
             }
@@ -67,19 +67,19 @@ class UARTInterface : public ComInterface
             double cumulTime= 0.0;
             int frameSize= -1;
             bool sofDetected= false;
-            while(frame.size() < frame.GetMaxSize()) {
+            while(frame.size() < frame.maxSize()) {
                 gettimeofday(&start, NULL);
                 int nBytes= read(SerialPort, data, 1);
                 gettimeofday(&end, NULL);
                 if (nBytes > 0) {
                     cumulTime= 0.0;
-                    frame.Add(data[0]);
+                    frame.add(data[0]);
                     if (frame.size() > Parser.getSOF().size() && frameSize == -1) {
                         int startIndex= findPattern(frame.data(), frame.size(), Parser.getSOF().data(), Parser.getSOF().size());
                         if (startIndex >= 0 && startIndex + Parser.getSOF().size() < frame.size()) {
                             frameSize= frame[startIndex + Parser.getSOF().size()];
                             for (int i= 0; i < startIndex; i++) {
-                                frame.RemoveAt(0);
+                                frame.removeAt(0);
                             }
                         }
                     }

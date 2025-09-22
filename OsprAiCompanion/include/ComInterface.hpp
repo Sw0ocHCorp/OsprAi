@@ -53,12 +53,12 @@ class ComInterface
                         //cout << "Frame size= " << frame.size() << " | Elapsed time= " << elapsedTime << " us" << endl;
                         StaticVector<StaticVector<float, 10>, 10> data= Parser.parseFrame(frame);
                         if (data.size() > 0) {
-                            FrameReceivedEvent.trigger(frame);
+                            FrameReceivedEvent.trigger(&frame);
                             WorldMap wMap= dataFrameToWorldMap(data);
-                            DataReceivedEvent.trigger(wMap);
+                            DataReceivedEvent.trigger(&wMap);
                             if (OutputFrame.size() > 0 && ID == FC_INTERFACE) {
                                 pthread_mutex_lock(&Lock);
-                                sendRawFrame(OutputFrame);
+                                sendRawFrame(&OutputFrame);
                                 pthread_mutex_unlock(&Lock);
                                 elapsedTime= 0.0;
                             }
@@ -66,7 +66,7 @@ class ComInterface
                     }
                     if (elapsedTime > (1000.0 / Freq) && OutputFrame.size() > 0 && ID == RC_INTERFACE) {
                         pthread_mutex_lock(&Lock);
-                        sendRawFrame(OutputFrame);
+                        sendRawFrame(&OutputFrame);
                         pthread_mutex_unlock(&Lock);
                         elapsedTime= 0.0;
                     }
@@ -87,12 +87,16 @@ class ComInterface
         }
 
         void startTask() {
+            pthread_mutex_lock(&Lock);
             this->IsRunning = true;
+            pthread_mutex_unlock(&Lock);
             Task = thread(&ComInterface::runTask, this);
         }
 
         virtual void stopTask() {
+            pthread_mutex_lock(&Lock);
             this->IsRunning = false;
+            pthread_mutex_unlock(&Lock);
             if (Task.joinable()) {
                 Task.join();
             }
@@ -100,13 +104,13 @@ class ComInterface
 
         virtual bool connect() = 0;
 
-        virtual bool sendRawFrame(StaticVector<uint8_t, 500> frameData) = 0;
+        virtual bool sendRawFrame(StaticVector<uint8_t, 500> *frameData) = 0;
 
         virtual StaticVector<uint8_t, 500> listenForIncomingFrame()= 0;
 
-        void enqueueNewFrame(StaticVector<uint8_t, 500> newFrame) {
+        void enqueueNewFrame(StaticVector<uint8_t, 500> *newFrame) {
             pthread_mutex_lock(&Lock);
-            OutputFrame= newFrame;
+            OutputFrame= *newFrame;
             pthread_mutex_unlock(&Lock);
         }
 
@@ -114,11 +118,11 @@ class ComInterface
             return Task;
         }
 
-        void addFrameReceivedObserver(Observer<StaticVector<uint8_t, 500>> *observer) {
+        void addFrameReceivedObserver(std::shared_ptr<Observer<StaticVector<uint8_t, 500>>> observer) {
             FrameReceivedEvent.addObserver(observer);
         }
 
-        void addDataReceivedObserver(Observer<WorldMap> *observer) {
+        void addDataReceivedObserver(std::shared_ptr<Observer<WorldMap>> observer) {
             DataReceivedEvent.addObserver(observer);
         }
 };
