@@ -102,7 +102,7 @@
 			},
 			{
 				"backtrace" : 2,
-				"fragment" : "-lwiringPi",
+				"fragment" : "-li2c",
 				"role" : "libraries"
 			}
 		],

@@ -111,6 +111,19 @@ class StaticVector  {
 			}
 		}
 
+		void insert(int index, T data) {
+			if (Size < MaxSize && index >= 0 && index <= Size) {
+				for(int i= index; i < Size; i++) {
+					Data[i+1]= Data[i];
+				}
+				Size++;
+				Data[index]= data;
+				
+			} else {
+				throw std::out_of_range("Size");
+			}
+		}
+
 		void remove(T data) {
 			int index= -1;
 			for (int i= 0; i < Size; i++) {
@@ -220,6 +233,11 @@ struct GPSData {
 	float Lat;
 	float Lon;
 	float Speed;
+};
+
+struct IMUData {
+	float LinAccelVec[3];
+	float RotAccelVec[3];
 };
 
 float hexStringToFloat(string hexString) {

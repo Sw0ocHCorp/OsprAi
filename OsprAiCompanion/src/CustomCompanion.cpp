@@ -3,8 +3,15 @@
 #include "UARTInterface.hpp"
 #include "FrameParser.hpp"
 #include "Actuators/ServosController.hpp"
+#include "Sensors/IMUManager.hpp"
 
 int main() {
+    //We set 7bits addresses for I2C devices because ioctl function use 7 bits length addresses
+    //Different from STM Nucleo because it use 8 bits addresses so we need to set DeviceAddress(7bits) << 1
+    IMUConfig config;
+    config.AccelRange= A16G;
+    config.GyroRange= G2000;
+    IMUManager imu(StaticVector<char, 25> ("/dev/i2c-1", 10), StaticVector<uint8_t, 10> {0x68}, config);
     ServosController servos(StaticVector<StaticVector<char, 50>, 4> {
                                 StaticVector<char, 50> ("/sys/class/pwm/pwmchip0/pwm0", 28)
                             }, 0.025, 0.125, 0.005, 50, 270);
@@ -30,6 +37,7 @@ int main() {
     uartObserver->setCallback(std::bind(&UDPInterface::enqueueNewFrame, &eth, std::placeholders::_1));
     eth.addFrameReceivedObserver(ethObserver);
     uart.addFrameReceivedObserver(uartObserver);*/
+    imu.getMeasurements();
     //Maintain the main thread alive
     struct timespec start, end;
     clock_gettime(CLOCK_MONOTONIC, &start);

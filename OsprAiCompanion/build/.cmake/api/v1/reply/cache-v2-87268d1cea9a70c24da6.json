@@ -998,6 +998,18 @@
 			"value" : "FALSE"
 		},
 		{
+			"name" : "I2C_LIB",
+			"properties" : 
+			[
+				{
+					"name" : "HELPSTRING",
+					"value" : "Path to a library."
+				}
+			],
+			"type" : "FILEPATH",
+			"value" : "/usr/lib/aarch64-linux-gnu/libi2c.so"
+		},
+		{
 			"name" : "OsprAiCompanion_BINARY_DIR",
 			"properties" : 
 			[
