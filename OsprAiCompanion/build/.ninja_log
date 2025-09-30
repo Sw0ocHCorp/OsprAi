@@ -1,15 +1,11 @@
 # ninja log v5
-3023	3202	1758591345025252397	OsprAiCompanion	a213275946584eb8
-2	3022	1758591344837254932	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-4	3319	1758619262477393924	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-3319	3534	1758619262697383997	OsprAiCompanion	a213275946584eb8
-2	2984	1758619315423193931	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-2984	3160	1758619315603187055	OsprAiCompanion	a213275946584eb8
-1	3129	1758619542064828391	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-3130	3299	1758619542240824780	OsprAiCompanion	a213275946584eb8
-2	2959	1758619638739043007	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-2959	3128	1758619638915040077	OsprAiCompanion	a213275946584eb8
-2	3113	1758620564450515943	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-3113	3287	1758620564638517841	OsprAiCompanion	a213275946584eb8
-3	3253	1758620753751974080	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
-3254	3425	1758620753931975086	OsprAiCompanion	a213275946584eb8
+3252	3427	1758642838058683477	OsprAiCompanion	a213275946584eb8
+2	3252	1758642837874678575	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
+3	3407	1759207435544233767	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
+3408	3616	1759207435760233396	OsprAiCompanion	a213275946584eb8
+2	3230	1759207699658525605	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
+3230	3399	1759207699834523510	OsprAiCompanion	a213275946584eb8
+4	3268	1759207722326264195	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
+3268	3436	1759207722502262228	OsprAiCompanion	a213275946584eb8
+2	3407	1759207742422045562	CMakeFiles/OsprAiCompanion.dir/src/CustomCompanion.cpp.o	f86eddafce39a082
+3408	3671	1759207742698042640	OsprAiCompanion	a213275946584eb8

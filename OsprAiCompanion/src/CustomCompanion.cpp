@@ -4,6 +4,7 @@
 #include "FrameParser.hpp"
 #include "Actuators/ServosController.hpp"
 #include "Sensors/IMUManager.hpp"
+#include "LiDARManager.hpp"
 
 int main() {
     //We set 7bits addresses for I2C devices because ioctl function use 7 bits length addresses
@@ -12,9 +13,12 @@ int main() {
     config.AccelRange= A16G;
     config.GyroRange= G2000;
     IMUManager imu(StaticVector<char, 25> ("/dev/i2c-1", 10), StaticVector<uint8_t, 10> {0x68}, config);
-    ServosController servos(StaticVector<StaticVector<char, 50>, 4> {
+    LidarManager lidar(StaticVector<char, 25> ("/dev/i2c-1", 10), StaticVector<uint8_t, 4> {0x29, 0x30, 0x31, 0x32},
+                            StaticVector<StaticVector<char, 50>, 2> {StaticVector<char, 50> ("/sys/class/pwm/pwmchip0/pwm0", 28)}, 
+                            0.025, 0.1, 0.0125, 50, 270, 50);
+    /*ServosController servos(StaticVector<StaticVector<char, 50>, 4> {
                                 StaticVector<char, 50> ("/sys/class/pwm/pwmchip0/pwm0", 28)
-                            }, 0.025, 0.125, 0.005, 50, 270);
+                            }, 0.025, 0.125, 0.005, 50, 270);*/
 
 
     /*FrameParser rcParser(StaticVector<uint8_t, 10> {0xAB, 0xCD}, StaticVector<StaticVector<uint8_t, 10>, 10> { StaticVector<uint8_t, 10> {0x00, 0x0A}, StaticVector<uint8_t, 10> {0x00, 0x0B} },
@@ -39,19 +43,8 @@ int main() {
     uart.addFrameReceivedObserver(uartObserver);*/
     imu.getMeasurements();
     //Maintain the main thread alive
-    struct timespec start, end;
-    clock_gettime(CLOCK_MONOTONIC, &start);
-    clock_gettime(CLOCK_MONOTONIC, &end);
-    double elapsedTime= abs(end.tv_sec - start.tv_sec) * 1000.0
-                                     + abs(end.tv_nsec - start.tv_nsec) / 1e6; 
     while(true) {
-        clock_gettime(CLOCK_MONOTONIC, &end);
-        elapsedTime= abs(end.tv_sec - start.tv_sec) * 1000.0
-                                     + abs(end.tv_nsec - start.tv_nsec) / 1e6; 
-        if (elapsedTime > 20) {
-            clock_gettime(CLOCK_MONOTONIC, &start);
-            servos.setAngleDutyCycle(180);
-        }
+        lidar.startMainTask();
     }
     return 1;
 }

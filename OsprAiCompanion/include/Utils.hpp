@@ -13,10 +13,16 @@
 
 using namespace std;
 
-#define MHz 	1000000
-#define NONE 	0
-#define ARM 	10
-#define DISARM 	15
+#define MHz 								1000000
+#define NONE 								0
+#define ARM 								10
+#define DISARM 								15
+
+#define LL_PWM_SETPOINT						20
+#define HL_SPEED_VEC_SETPOINT				21
+#define HL_ANGLE_SETPOINT					22
+#define HL_ANGLE_SPEED_VEC_SETPOINT			23
+#define SERVO_ANGLE_SETPOINT				30
 
 template<typename T, unsigned int MS>
 class CircularBuffer {
@@ -29,6 +35,13 @@ class CircularBuffer {
 	public:
 		CircularBuffer() {
 
+		}
+
+		T tail() {
+			int index= Tail + 1;
+			if (index >= MaxSize)
+				index= 0;
+			return Data[index];
 		}
 
 		void enqueue(T data) {
@@ -53,7 +66,9 @@ class CircularBuffer {
 				if (Size < 0)
 					Size= 0;
 				return Data[Tail];
-			} 
+			} else {
+				throw std::out_of_range("Tail == Head");
+			}
 		}
 
 		int size() const {
@@ -210,11 +225,12 @@ class StaticVector  {
 };
 
 struct SetPoint {
+	uint8_t SetpointType;
 	uint8_t ArmingCmd;
-	float ThetaSetpoint;
-	StaticVector<float, 3> LinsSpeedSetpoint;
-	StaticVector<float, 3> RotSpeedSetpoint;
-	StaticVector<float, 10> ServosAngleSetpoint;
+	float Theta;
+	StaticVector<float, 3> LinsSpeed;
+	StaticVector<float, 3> RotSpeed;
+	StaticVector<int, 10> ServosAngle;
 };
 
 struct WorldMap {

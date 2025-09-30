@@ -7,9 +7,6 @@
 
 using namespace std;
 
-struct Message {
-};
-
 template <typename T>
 class Observer {
 	protected:
@@ -61,7 +58,7 @@ class ScheduledModule {
 		Event<void> CallNextModuleEvent;
 		std::shared_ptr<Observer<void>> ExecTaskObserver;
 		int Freq;
-		uint32_t StartTime;
+		struct timespec StartTime, CurrentTime;
 		bool IsMultiTask;
 		bool IsSecondTask= true;
 
@@ -71,6 +68,7 @@ class ScheduledModule {
 			ExecTaskObserver = std::make_shared<Observer<void>>();
 			ExecTaskObserver->setCallback(std::bind(&ScheduledModule::startMainTask, this));
 			IsMultiTask= isMultiTask;
+			clock_gettime(CLOCK_MONOTONIC, &StartTime);
 		}
 
 		void setFirstInSchedule() {
@@ -86,22 +84,25 @@ class ScheduledModule {
 		}
 
 		void startMainTask() {
-			/*if (IsMultiTask) {
-				if (IsFirst || (int)(HAL_GetTick() - StartTime) >= (1000 / (Freq*2)) - 1) {
-					StartTime = HAL_GetTick();
+			clock_gettime(CLOCK_MONOTONIC, &CurrentTime);
+			double elapsedTime= abs(CurrentTime.tv_sec - StartTime.tv_sec) * 1000.0
+                                     + abs(CurrentTime.tv_nsec - StartTime.tv_nsec) / 1e6; 
+			if (IsMultiTask) {
+				if (IsFirst || (int)elapsedTime >= (1000 / (Freq*2)) - 1) {
+					clock_gettime(CLOCK_MONOTONIC, &StartTime);
 					IsSecondTask= !IsSecondTask;
 					if (IsSecondTask) {
-						ExecSecondTask();
+						execSecondTask();
 					} else {
-						ExecMainTask();
+						execMainTask();
 					}
 				}
 			} else {
-				if (IsFirst || (int)(HAL_GetTick() - StartTime) >= (1000 / Freq) - 1) {
-					StartTime = HAL_GetTick();
-					ExecMainTask();
+				if (IsFirst || (int)elapsedTime >= (1000 / Freq) - 1) {
+					clock_gettime(CLOCK_MONOTONIC, &StartTime);
+					execMainTask();
 				}
-			}*/
+			}
 		}
 
 		virtual void execMainTask()= 0;
